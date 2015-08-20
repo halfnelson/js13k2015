@@ -4,8 +4,8 @@
 
 var cv = document.getElementById("c");
 var c = cv.getContext("2d");
-var w = 640;
-var h = 480;
+var w = 320;
+var h = 200;
 var roadwidth =1.2;
 var roadwidthend = 0.04;
 var sideRoadWidth = 0.05;
@@ -17,8 +17,8 @@ function poly(c, color, p) {
     c.fillStyle = color;
     c.beginPath();
     c.moveTo(p[0], h);
-    c.lineTo(p[1], 0);
-    c.lineTo(p[2], 0);
+    c.lineTo(p[1], h/2);
+    c.lineTo(p[2], h/2);
     c.lineTo(p[3], h);
     c.fill();
 }
@@ -65,38 +65,44 @@ function drawBackground(skycolor) {
     c.fill();
 }
 //var zbuffer = [];
-var camHeight = 0.70;
+var camHeight = 0.50;
 function calcZ(ys) {
-    var y = (h-ys)/2;
+   // var y = (h-ys)/2;
 
-    var ycam = (camHeight * h);
-    if (y == h/2) return -1;
-   var z = -1000*ycam /(y - (h/2));
+    //var ycam = (camHeight * h);
+   // if (y == h/2) return -1;
+  // var z = -1000*ycam /(y - (h/2));
    // var z = -1* y / (ycam - y);
-    return z;
+    var cy = 100; //camera height
+    var cz = 10; //camera distance from screen
+    var wz = -1 * ((cy*cz)/(h/2 - ys));
+
+    return wz;
 }
 
-var segmentLength =2050;
+var segmentLength =20;
 function drawy(ys, zoffset) {
 
     var z=calcZ(ys)+zoffset;
-    if (z < 0) return;
+    if (z < 0) return true;
+    if (z > 200) return false;
     var isr1 = Math.floor(z/segmentLength) % 2 == 0;
     var imgd = isr1 ? r1d : r2d;
-    c.putImageData(imgd,0,(h-ys)*(camHeight ),0,ys,w,2);
+    c.putImageData(imgd,0, 0,0,ys,w,2);
+    return true;
 }
 
 
 function draw3dRoad(zoffset) {
    //start at bottom
-   for (var ys = 0; ys < h-1; ys=ys+1) {
-      drawy(ys, zoffset);
+   for (var ys = h-1; ys > 0; ys=ys-1) {
+      if (!drawy(ys, zoffset)) break;
    }
 }
 drawBackground("blue");
 
 var off = 0;
-var speed = segmentLength/20;
+var speed = segmentLength/15;
 function render(ts) {
 
     off = off + speed;
@@ -107,5 +113,6 @@ function render(ts) {
 }
 
 requestAnimationFrame(render);
+//draw3dRoad(0)
 
 //c.putImageData(r1d,0,0,0,h*3/4,w,h/4);
