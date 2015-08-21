@@ -7,17 +7,16 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<script>
+(function(){var script=document.createElement('script');script.onload=function(){var stats=new Stats();stats.domElement.style.cssText='position:fixed;left:0;top:0;z-index:10000';document.body.appendChild(stats.domElement);requestAnimationFrame(function loop(){stats.update();requestAnimationFrame(loop)});};script.src='//rawgit.com/mrdoob/stats.js/master/build/stats.min.js';document.head.appendChild(script);})()
+</script>
     <h1>Reversed</h1>
     <div class="gamescreen">
-        <canvas id="c" width="640" height="480"></canvas>
+        <canvas id="c" width="640" height="400"></canvas>
     </div>
-    <table>
-        <tr>
-            <td><img id="r1"></td>
-            <td><img id="r2"></td>
-        </tr>
-    </table>
-
+    <label>Cz <input type="number" id="cz" value="10"></label>
+   <label>Cy <input type="number" id="cy" value="100"></label>
+    <button type="button" onclick="applyChanges()">Apply</button>
     <script src="reversed.js"></script>
 
 </body>
