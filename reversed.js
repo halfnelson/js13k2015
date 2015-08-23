@@ -116,7 +116,7 @@ function game() {
     function adjustcurveperspective(curve) {
         var newcurve = [];
         for (var i = 0; i < horizon; i++) {
-            newcurve.push((i * i / (horizon * horizon)) * curve[i]);
+            newcurve.push((i * i * i * i/ (horizon * horizon* horizon*horizon)) * curve[i]);
         }
         return newcurve;
     }
@@ -234,6 +234,10 @@ function game() {
         if (olds > currentSection) {
             lap++;
         }
+        var pulldir = currentMap[currentSection][0];
+        vx = vx - pulldir*carturnspeed * (vy*vy / maxvy*maxvy);
+        if (vx > w ) vx = w;
+        if (vx < -1*w) vx = -1*w;
     }
 
     function render(ts) {
@@ -248,14 +252,18 @@ function game() {
         requestAnimationFrame(render);
     }
 
+
     function processInput() {
         carDirection = 0;
+
         if (keys["Right"]) {
-            vx = vx + (carturnspeed * vy / maxvy);
+            vx = vx + ((carturnspeed * vy / maxvy));
+
             carDirection = 1;
         }
         if (keys["Left"]) {
-            vx = vx - (carturnspeed * vy / maxvy);
+            vx = vx - ((carturnspeed * vy / maxvy));
+
             carDirection = -1;
         }
         if (keys["Up"]) {
@@ -294,7 +302,7 @@ function game() {
 
     var vx = 0; //vehicle offset from center
     var vy = 0; //vehicle speed
-    var maxvy = 1;
+    var maxvy = 0.8;
 
     var off = 0; //offset into track
     var segmentLength = 5;
@@ -320,7 +328,7 @@ function game() {
 
     var basicmap = [
         [0,50],
-        [-0.5,50],
+        [-0.5,15],
         [-1,50],
         [0,50],
         [1, 50]
@@ -339,7 +347,7 @@ function game() {
 
 
     /* setup our car */
-    var carturnspeed = 15;
+    var carturnspeed = 10;
     var caracceleration = 0.005;
     var carTopSpeedDisplay = 160;
     var carstraight = $("cr");
