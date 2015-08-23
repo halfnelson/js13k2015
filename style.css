@@ -11,7 +11,7 @@ h1 {
 img {
     display:none;
 }
-canvas {
+.gs canvas {
     width: 100%;
     height: 100%;
 }

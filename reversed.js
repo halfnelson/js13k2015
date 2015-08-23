@@ -56,6 +56,36 @@ function game() {
         return cv;
     }
 
+    function createSign(w, h, gh, color, borderColor, contentCallback ) {
+        var tmpc = n$("canvas");
+        tmpc.width = w;
+        tmpc.height = h+gh;
+        var ctx = tmpc.getContext("2d");
+        //poles
+        ctx.fillStyle = "#DDD";
+        ctx.fillRect(w/4-2,0,4,h+gh);
+        ctx.fillRect(3*w/4-2,0,4,h+gh);
+        //sign
+        ctx.fillStyle = borderColor;
+        ctx.fillRect(0,0,w,h);
+        ctx.fillStyle = color;
+        ctx.fillRect(2,2,w-4,h-4);
+
+        if (contentCallback) contentCallback(ctx);
+        return tmpc;
+    }
+
+    function createUnicodeSign(w, h, gh, color, borderColor, chr, chrColor) {
+        return createSign(w,h,gh,color,borderColor, function(ctx) {
+            var fs = h * 0.65;
+            ctx.font = fs+"px Arial";
+            ctx.fillStyle = chrColor;
+            ctx.fillText(chr, w/2- fs/2,h/2+fs/2 - fs/8)
+        })
+    }
+
+
+
     function flipImage(image) {
         var tmpc = n$("canvas");
         tmpc.width = image.naturalWidth;
@@ -176,8 +206,8 @@ function game() {
             c.drawImage(imgd, tw / 2 - w / 2 + x, (h - ys), w, 1, 0, (h - ys), w, 1);
             lastdx = x - lastx;
             lastx =x;
-
         }
+
         if (false) {
             c.beginPath();
             c.moveTo(0,0);
@@ -345,6 +375,8 @@ function game() {
     var road1 = drawRoadTexture("#224400", "#314430", "white", "white");
     var road2 = drawRoadTexture("#325611", "#435443", "#314430", "#435443");
 
+    var signSlip = createUnicodeSign(60,60,45,"yellow","black", "\u26D0","black");
+    var signWarn = createUnicodeSign(60,60,45,"white", "black", "\u26A0", "red" );
 
     /* setup our car */
     var carturnspeed = 10;
@@ -363,6 +395,10 @@ function game() {
     var currentMap = basicmap;
     var lap = 1;
 
+
+    document.getElementsByTagName("body")[0].appendChild(signSlip);
+    document.getElementsByTagName("body")[0].appendChild(signWarn);
+    signSlip.style="width: 100px; height: auto";
 
     requestAnimationFrame(render);
 
