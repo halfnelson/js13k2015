@@ -169,11 +169,12 @@ function game() {
         var lastSec = currentSection;
         var changeover = false;
         var lastx = 0;
-        var lastz = 0;
+        var lastz = -1;
         var objects = [];
         //road pass
         for (var ys = 0; ys < horizon; ys = ys + 1) {
             var z = (zmap[ys] || -1) + zoffset;
+            if (lastz < 0) lastz = z;
             if (z-zoffset > 80) break;
             var x = 0;
             //TODO this should be based on the current part of the map, not hardcoded rightDx[ys]
@@ -211,7 +212,7 @@ function game() {
 
             var objs = currentMap[sec][2].filter(function(i) { return i[0] > (lastz - zoff) && i[0] <= (z - zoff)  });
             for (i = 0; i < objs.length; i++) {
-                objects.push([objs[i],ys,x,z] );
+                objects.unshift([objs[i],ys,x,z] );
             }
 
 
@@ -220,20 +221,21 @@ function game() {
             lastz = z;
         }
         //render objects
-        var scalefactorx = (roadwidthend/roadwidth);
+
         for (var i=0; i < objects.length; i++) {
             var o = objects[i];
             var y = o[1];
-            var x = (o[2] + (y/horizon)*scalefactorx)*w/2;//  , (y/horizon)*scalefactorx + o[2]
+            var scalefactorx = ((y-horizon)- (roadwidthend/roadwidth)*y)/horizon;
+            var x = (-1*o[2]+  o[0][1]*(w/2)*scalefactorx*roadwidth*3);//  , (y/horizon)*scalefactorx + o[2]
 
             var ow = o[0][2].width;
             var oh = o[0][2].height;
             var oz = o[3];
 
-            var sw = ow * ((y)/horizon)*scalefactorx;
-            var sh = oh * ((y)/horizon)*scalefactorx;
+            var sw = ow * scalefactorx;
+            var sh = oh * scalefactorx;
 
-            c.drawImage(o[0][2],0,0,ow,oh,x-sw/2,y-sh,sw,sh );
+            c.drawImage(o[0][2],0,0,ow,oh, (w/2+ x) -sw/2,(h-y),sw,sh );
 
 
             //var x = o[0][1] * (roadwidthend/2) * width +   o[0][1] * ((h-ys)/horizon)*(roadwidth*w)
@@ -246,7 +248,7 @@ function game() {
             c.lineWidth = 5;
             c.fillRect(0,0,20,(h - changeover) );
           //  if (ys - yoff > 20) vy = 0.04;
-           // console.log(ys - yoff);
+           // console.log(ys - yoff)
         }
 
     }
@@ -397,10 +399,16 @@ function game() {
     cornerTypes[1] = rightDx;
     cornerTypes[0] = []; for (var i = 0; i < horizon; i++) { cornerTypes[0][i] = 0;}
 
-    var signSlip = createUnicodeSign(60,60,45,"yellow","black", "\u26D0","black");
-    var signWarn = createUnicodeSign(60,60,45,"white", "black", "\u26A0", "red" );
+    var signSlip = createUnicodeSign(100,60,45,"yellow","black", "\u26D0","black");
+    var signWarn = createUnicodeSign(100,60,45,"white", "black", "\u26A0", "red" );
 
-
+    var checkpoint = createSign(roadwidth*w*3*1.1,100,300, "red","red",function(ctx){
+        var fs = 100 * 0.65;
+        ctx.font = "normal normal bold "+fs+"px Arial";
+        ctx.textAlign = "center";
+        ctx.fillStyle = "white";
+        ctx.fillText("Checkpoint", roadwidth*w*3*1.1/2,100/2+fs/4);
+    });
 
     var objectSet = [];
     function objectRepeat(type, offset, startDist, distBetween, count) {
@@ -411,9 +419,9 @@ function game() {
         return r;
     }
 
-    objectSet = objectSet.concat(objectRepeat(signWarn, (roadwidthend/2)*1.1, 0,segmentLength,50 ));
+    objectSet = objectSet.concat(objectRepeat(signWarn, 1.25 , 0,segmentLength,50 ));
 
-
+    objectSet.push([segmentLength,0,checkpoint]);
 
 
 
