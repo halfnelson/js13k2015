@@ -163,11 +163,14 @@ function game() {
     function draw3dRoad(zoffset) {
         var yoff = 0;
         var xoff = 0;
+        var zoff = 0;
         var lastdx = 0;
         var dx = 0;
         var lastSec = currentSection;
         var changeover = false;
         var lastx = 0;
+        var lastz = 0;
+        var objects = [];
         //road pass
         for (var ys = 0; ys < horizon; ys = ys + 1) {
             var z = (zmap[ys] || -1) + zoffset;
@@ -182,6 +185,7 @@ function game() {
                 dx = lastdx;
                 lastSec = sec;
                 changeover = ys;
+                zoff = lastz;
             }
 
             //(1 - (ys / horizon)) * vx ensures that when the road moves left and right, the vanishing point remains the same
@@ -204,8 +208,35 @@ function game() {
 
             c.beginPath();
             c.drawImage(imgd, tw / 2 - w / 2 + x, (h - ys), w, 1, 0, (h - ys), w, 1);
+
+            var objs = currentMap[sec][2].filter(function(i) { return i[0] > (lastz - zoff) && i[0] <= (z - zoff)  });
+            for (i = 0; i < objs.length; i++) {
+                objects.push([objs[i],ys,x,z] );
+            }
+
+
             lastdx = x - lastx;
-            lastx =x;
+            lastx = x;
+            lastz = z;
+        }
+        //render objects
+        var scalefactorx = (roadwidthend/roadwidth);
+        for (var i=0; i < objects.length; i++) {
+            var o = objects[i];
+            var y = o[1];
+            var x = (o[2] + (y/horizon)*scalefactorx)*w/2;//  , (y/horizon)*scalefactorx + o[2]
+
+            var ow = o[0][2].width;
+            var oh = o[0][2].height;
+            var oz = o[3];
+
+            var sw = ow * ((y)/horizon)*scalefactorx;
+            var sh = oh * ((y)/horizon)*scalefactorx;
+
+            c.drawImage(o[0][2],0,0,ow,oh,x-sw/2,y-sh,sw,sh );
+
+
+            //var x = o[0][1] * (roadwidthend/2) * width +   o[0][1] * ((h-ys)/horizon)*(roadwidth*w)
         }
 
         if (false) {
@@ -345,26 +376,6 @@ function game() {
     var zmap, rightDx, leftDx;
     calculateMaps();
 
-//map
-    //map [[ corner type, number of segments ]]
-    // 0 is straight, -1 = left, 1 = right
-
-    var cornerTypes = {};
-    cornerTypes[-1] = leftDx;
-    cornerTypes[-0.5] =calculateXMap(0.5, -1);
-    cornerTypes[1] = rightDx;
-    cornerTypes[0] = []; for (var i = 0; i < horizon; i++) { cornerTypes[0][i] = 0;}
-
-
-    var basicmap = [
-        [0,50],
-        [-0.5,15],
-        [-1,50],
-        [0,50],
-        [1, 50]
-    ];
-
-
 
     /* setup our two road textures to produce the effect of moving forward */
     var roadwidth = 1.5 / 3;
@@ -375,8 +386,49 @@ function game() {
     var road1 = drawRoadTexture("#224400", "#314430", "white", "white");
     var road2 = drawRoadTexture("#325611", "#435443", "#314430", "#435443");
 
+
+//map
+    //map [[ corner type, number of segments ]]
+    // 0 is straight, -1 = left, 1 = right
+
+    var cornerTypes = {};
+    cornerTypes[-1] = leftDx;
+    cornerTypes[-0.5] =calculateXMap(0.5, -1);
+    cornerTypes[1] = rightDx;
+    cornerTypes[0] = []; for (var i = 0; i < horizon; i++) { cornerTypes[0][i] = 0;}
+
     var signSlip = createUnicodeSign(60,60,45,"yellow","black", "\u26D0","black");
     var signWarn = createUnicodeSign(60,60,45,"white", "black", "\u26A0", "red" );
+
+
+
+    var objectSet = [];
+    function objectRepeat(type, offset, startDist, distBetween, count) {
+        var r = [];
+        for (var i=0; i < count; i++) {
+            r.push([startDist+i*(distBetween),offset, type]);
+        }
+        return r;
+    }
+
+    objectSet = objectSet.concat(objectRepeat(signWarn, (roadwidthend/2)*1.1, 0,segmentLength,50 ));
+
+
+
+
+
+
+    var basicmap = [
+        [0,50, objectSet],
+        [-0.5,15,[]],
+        [-1,50, []],
+        [0,50, []],
+        [1, 50, []]
+    ];
+
+
+
+
 
     /* setup our car */
     var carturnspeed = 10;
@@ -398,7 +450,7 @@ function game() {
 
     document.getElementsByTagName("body")[0].appendChild(signSlip);
     document.getElementsByTagName("body")[0].appendChild(signWarn);
-    signSlip.style="width: 100px; height: auto";
+
 
     requestAnimationFrame(render);
 
