@@ -172,7 +172,14 @@ function game() {
         var lastz = -1;
         var objects = [];
         //road pass
+        //slope
+        var ddy = 0;
+        var dy = 1;
+        var lasty = 0;
+        var rendery = 0;
         for (var ys = 0; ys < horizon; ys = ys + 1) {
+            dy = dy + ddy;
+            rendery = rendery + dy;
             var z = (zmap[ys] || -1) + zoffset;
             if (lastz < 0) lastz = z;
             if (z-zoffset > 80) break;
@@ -207,17 +214,23 @@ function game() {
             var isr1 = Math.floor(z / segmentLength) % 2 == 0;
             var imgd = isr1 ? road1 : road2;
 
-            c.beginPath();
-            c.drawImage(imgd, tw / 2 - w / 2 + x, (h - ys), w, 1, 0, (h - ys), w, 1);
+            if ((Math.ceil(rendery - lasty)) > 0) {
+
+                c.beginPath();
+                c.drawImage(imgd, tw / 2 - w / 2 + x, (h - Math.floor(ys)), w, 1, 0, (h - Math.floor(rendery)), w, Math.ceil(rendery-lasty));
+                lasty = rendery;
+            }
 
             var objs = currentMap[sec][2].filter(function(i) { return i[0] > (lastz - zoff) && i[0] <= (z - zoff)  });
             for (i = 0; i < objs.length; i++) {
-                objects.unshift([objs[i],ys,x,z] );
+                objects.unshift([objs[i],ys,x,z,rendery] );
             }
+
 
 
             lastdx = x - lastx;
             lastx = x;
+
             lastz = z;
         }
         //render objects
@@ -225,6 +238,7 @@ function game() {
         for (var i=0; i < objects.length; i++) {
             var o = objects[i];
             var y = o[1];
+            var yrender = o[4];
             var scalefactorx = ((y-horizon)- (roadwidthend/roadwidth)*y)/horizon;
             var x = (-1*o[2]+  o[0][1]*(w/2)*scalefactorx*roadwidth*3);//  , (y/horizon)*scalefactorx + o[2]
 
@@ -235,7 +249,7 @@ function game() {
             var sw = ow * scalefactorx;
             var sh = oh * scalefactorx;
 
-            c.drawImage(o[0][2],0,0,ow,oh, (w/2+ x) -sw/2,(h-y),sw,sh );
+            c.drawImage(o[0][2],0,0,ow,oh, (w/2+ x) -sw/2,(h-yrender),sw,sh );
 
 
             //var x = o[0][1] * (roadwidthend/2) * width +   o[0][1] * ((h-ys)/horizon)*(roadwidth*w)
@@ -370,7 +384,7 @@ function game() {
     var off = 0; //offset into track
     var segmentLength = 5;
 
-    var cy = 50; //world camera height
+    var cy =  50; //world camera height
     var cz = 8; //world camera distance from screen
 
 //offsets
@@ -399,8 +413,8 @@ function game() {
     cornerTypes[1] = rightDx;
     cornerTypes[0] = []; for (var i = 0; i < horizon; i++) { cornerTypes[0][i] = 0;}
 
-    var signSlip = createUnicodeSign(100,60,45,"yellow","black", "\u26D0","black");
-    var signWarn = createUnicodeSign(100,60,45,"white", "black", "\u26A0", "red" );
+    var signSlip = createUnicodeSign(160,160,45,"yellow","black", "\u26D0","black");
+    var signWarn = createUnicodeSign(160,160,45,"white", "black", "\u26A0", "red" );
 
     var checkpoint = createSign(roadwidth*w*3*1.1,100,300, "red","red",function(ctx){
         var fs = 100 * 0.65;
