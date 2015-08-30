@@ -2,11 +2,14 @@
     width: 640px;
     height: 400px;
     margin: auto;
-    border: 1px solid #AAAAAA;
+    border: 50px solid #AAAAAA;
+    position: relative;
 }
 
 h1 {
  text-align:  center;
+    color: lawngreen;
+    font-family: monospace;
 }
 img {
     display:none;
@@ -14,4 +17,18 @@ img {
 .gs canvas {
     width: 100%;
     height: 100%;
+    border: 0;
+
+}
+
+.b {
+    position: absolute;
+    right: 0%;
+    bottom: -40px;
+    color: greenyellow;
+    font-size: 20px;
+
+}
+body {
+    background-color: #444;
 }

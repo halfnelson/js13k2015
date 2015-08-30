@@ -85,6 +85,34 @@ function game() {
     }
 
 
+    function createBackground(skycolor) {
+        var cv = n$("canvas");
+        cv.width = tw;
+        cv.height = h;
+        var c = cv.getContext("2d");
+
+        c.rect(0, 0, tw, h);
+        c.fillStyle = skycolor;
+        c.fill();
+
+        var fs = h * 0.35;
+
+        c.fillStyle = "white";
+
+        var clds = [
+            [(1/4)*tw, (1/6)*h, 0.35],
+            [(2/4)*tw, (1/4)*h, 0.25],
+                [(3/4)*tw, (1/5)*h,0.30],
+                [(4/4)*tw, (1/8)*h, 0.20]
+        ];
+        for(var i=0; i < clds.length; i++) {
+            c.font = h*clds[i][2]+"px Arial";
+            c.fillText("\u2601",clds[i][0],clds[i][1]+30);
+        }
+        return cv;
+
+    }
+
 
     function flipImage(image) {
         var tmpc = n$("canvas");
@@ -151,11 +179,32 @@ function game() {
         return newcurve;
     }
 
+    function drawUnicode(char, fw, fh, color) {
+        var cv = n$("canvas");
+        cv.width = fw;
+        cv.height = fh;
+        var c = cv.getContext("2d");
 
-    function drawBackground(skycolor) {
-        c.rect(0, 0, w, h);
-        c.fillStyle = skycolor;
-        c.fill();
+        c.fillStyle = color;
+        c.font = h * 0.45 +"px Arial";
+        c.fillText(char,0,h*0.45,fw);
+        return cv;
+    }
+
+
+    function drawBackground() {
+        //c.rect(0, 0, w, h);
+        //c.fillStyle = skycolor;
+        //c.fill();
+        //left offset
+        var bo = (backgroundoffset < 0) ? tw+backgroundoffset : backgroundoffset;
+        var w1 = Math.min(w, tw-bo);
+        c.drawImage(background, bo,0,w1,h,0,0,w1,h);
+
+        //did we not cover whole background
+        if (w1 < w) {
+            c.drawImage(background, 0,0,w-w1,h,w1,0,w-w1,h);
+        }
     }
 
 
@@ -175,15 +224,17 @@ function game() {
         //slope
         var ddy = 0;
         var dy = 1;
+        var ddx = 0;
         var lasty = 0;
         var rendery = 0;
+        var x=0;
         for (var ys = 0; ys < horizon; ys = ys + 1) {
             dy = dy + ddy;
             rendery = rendery + dy;
             var z = (zmap[ys] || -1) + zoffset;
             if (lastz < 0) lastz = z;
             if (z-zoffset > 80) break;
-            var x = 0;
+
             //TODO this should be based on the current part of the map, not hardcoded rightDx[ys]
             //get our section for this y
             var sec = sectionFromOffset(z);
@@ -197,13 +248,21 @@ function game() {
             }
 
             //(1 - (ys / horizon)) * vx ensures that when the road moves left and right, the vanishing point remains the same
-            if (!yoff) {
-                x = (1 - (ys / horizon)) * vx;
-            }
+           // if (!yoff) {
+           //     x = (1 - (ys / horizon)) * vx;
+           // }
 
             var cornertype = currentMap[sec][0];
+            dx = cornerTypes[cornertype]*100;
+            //ddx = ddx + dx;
 
-            x = x + (cornerTypes[cornertype][Math.floor(((ys-yoff)/(horizon-yoff) * horizon))] || 0) + xoff + (ys-yoff)*dx;
+            var xoffadj = ((1 - (ys / horizon)) * vx);
+            x=x + dx * (lastz-z);//  +ddx;//+xoffadj;
+
+            var drawx = x +xoffadj;
+
+
+//           x = x + (cornerTypes[cornertype][Math.floor(((ys-yoff)/(horizon-yoff) * horizon))] || 0) + xoff; //+ (ys-yoff)*dx;
            // x = x + (cornerTypes[cornertype][ys-yoff] || 0) + xoff + (ys-yoff)*dx;
 
             if (z < 0) continue;
@@ -217,20 +276,17 @@ function game() {
             if ((Math.ceil(rendery - lasty)) > 0) {
 
                 c.beginPath();
-                c.drawImage(imgd, tw / 2 - w / 2 + x, (h - Math.floor(ys)), w, 1, 0, (h - Math.floor(rendery)), w, Math.ceil(rendery-lasty));
+                c.drawImage(imgd, tw / 2 - w / 2 + drawx, (h - Math.floor(ys)), w, 1, 0, (h - Math.floor(rendery)), w, Math.ceil(rendery-lasty));
                 lasty = rendery;
             }
 
             var objs = currentMap[sec][2].filter(function(i) { return i[0] > (lastz - zoff) && i[0] <= (z - zoff)  });
             for (i = 0; i < objs.length; i++) {
-                objects.unshift([objs[i],ys,x,z,rendery] );
+                objects.unshift([objs[i],ys,drawx,z,rendery] );
             }
-
-
 
             lastdx = x - lastx;
             lastx = x;
-
             lastz = z;
         }
         //render objects
@@ -240,30 +296,19 @@ function game() {
             var y = o[1];
             var yrender = o[4];
             var scalefactorx = ((y-horizon)- (roadwidthend/roadwidth)*y)/horizon;
-            var x = (-1*o[2]+  o[0][1]*(w/2)*scalefactorx*roadwidth*3);//  , (y/horizon)*scalefactorx + o[2]
+            x = (-1*o[2]+  o[0][1]*(w/2)*scalefactorx*roadwidth*3);//  , (y/horizon)*scalefactorx + o[2]
 
             var ow = o[0][2].width;
             var oh = o[0][2].height;
-            var oz = o[3];
 
             var sw = ow * scalefactorx;
             var sh = oh * scalefactorx;
 
             c.drawImage(o[0][2],0,0,ow,oh, (w/2+ x) -sw/2,(h-yrender),sw,sh );
 
-
-            //var x = o[0][1] * (roadwidthend/2) * width +   o[0][1] * ((h-ys)/horizon)*(roadwidth*w)
         }
 
-        if (false) {
-            c.beginPath();
-            c.moveTo(0,0);
-            c.fillStyle = "red";
-            c.lineWidth = 5;
-            c.fillRect(0,0,20,(h - changeover) );
-          //  if (ys - yoff > 20) vy = 0.04;
-           // console.log(ys - yoff)
-        }
+
 
     }
 
@@ -312,7 +357,11 @@ function game() {
             lap++;
         }
         var pulldir = currentMap[currentSection][0];
-        vx = vx - pulldir*carturnspeed * (vy*vy / maxvy*maxvy);
+        var pullamount = pulldir*carturnspeed * (vy*vy / maxvy*maxvy);
+
+        backgroundoffset = (backgroundoffset + pullamount/3) % tw;
+
+        vx = vx - pullamount;
         if (vx > w ) vx = w;
         if (vx < -1*w) vx = -1*w;
     }
@@ -322,7 +371,7 @@ function game() {
 
         move();
 
-        drawBackground("blue");
+        drawBackground();
         draw3dRoad(off);
         drawCar();
         drawHud();
@@ -349,10 +398,9 @@ function game() {
             }
         }
         if (keys["Down"]) {
-            if (vy > 0) {
                 vy = vy - caracceleration;
-                if (vy < 0) vy = 0;
-            }
+                if (vy < -1*maxvy/3) vy = -1*maxvy/3;
+
         }
     }
 
@@ -402,19 +450,36 @@ function game() {
     var road1 = drawRoadTexture("#224400", "#314430", "white", "white");
     var road2 = drawRoadTexture("#325611", "#435443", "#314430", "#435443");
 
+    var backgroundoffset = 0;
+    var background = createBackground("blue");
 
 //map
     //map [[ corner type, number of segments ]]
     // 0 is straight, -1 = left, 1 = right
 
     var cornerTypes = {};
-    cornerTypes[-1] = leftDx;
+    /*cornerTypes[-1] = leftDx;
     cornerTypes[-0.5] =calculateXMap(0.5, -1);
     cornerTypes[1] = rightDx;
     cornerTypes[0] = []; for (var i = 0; i < horizon; i++) { cornerTypes[0][i] = 0;}
+    */
+    var fullcurve = 1;
+    var scalefactor = 0.01;
+    window.setScaleFactor = function() {
+
+        scalefactor = $('sf').value;
+        cornerTypes[-1] = -1 * fullcurve* scalefactor;
+        cornerTypes[1] =  fullcurve* scalefactor;
+    }
+
+    cornerTypes[0] = 0;
+    cornerTypes[-1] = -1 * fullcurve* scalefactor;
+    cornerTypes[1] =  fullcurve* scalefactor;
 
     var signSlip = createUnicodeSign(160,160,45,"yellow","black", "\u26D0","black");
     var signWarn = createUnicodeSign(160,160,45,"white", "black", "\u26A0", "red" );
+    var tree = drawUnicode("\uD83C\uDF33",160,190,"darkgreen");
+
 
     var checkpoint = createSign(roadwidth*w*3*1.1,100,300, "red","red",function(ctx){
         var fs = 100 * 0.65;
@@ -433,19 +498,23 @@ function game() {
         return r;
     }
 
-    objectSet = objectSet.concat(objectRepeat(signWarn, 1.25 , 0,segmentLength,50 ));
+    objectSet = objectSet.concat(objectRepeat(signWarn, 1.25 , 0,segmentLength,5 ));
 
+    objectSet = objectSet.concat(objectRepeat(signSlip, -1.25,segmentLength*15,segmentLength,5 ));
     objectSet.push([segmentLength,0,checkpoint]);
 
+    var trees = [];
+    trees = trees.concat(objectRepeat(tree,2.0,0,segmentLength*2, 20));
 
-
+    var justcheckpoint = [[segmentLength,0,checkpoint]];
 
     var basicmap = [
-        [0,50, objectSet],
-        [-0.5,15,[]],
-        [-1,50, []],
-        [0,50, []],
-        [1, 50, []]
+        [0,20, objectSet],
+        //[-0.5,5, justcheckpoint],
+        [-1,20, trees],
+        [1,50,trees],
+        [0,20, objectSet],
+        [1, 20, objectSet]
     ];
 
 
@@ -470,9 +539,9 @@ function game() {
     var lap = 1;
 
 
-    document.getElementsByTagName("body")[0].appendChild(signSlip);
-    document.getElementsByTagName("body")[0].appendChild(signWarn);
-
+    //document.getElementsByTagName("body")[0].appendChild(signSlip);
+    //document.getElementsByTagName("body")[0].appendChild(signWarn);
+    //document.getElementsByTagName("body")[0].appendChild(tree);
 
     requestAnimationFrame(render);
 
@@ -488,6 +557,17 @@ function game() {
         return false;
     });
 
+    //music
+    /*
+    var player = new CPlayer();
+    player.init(song);
+
+    //while (player.generate() < 1) { }
+    var wave = player.createWave();
+    var audio = document.createElement("audio");
+    audio.src = URL.createObjectURL(new Blob([wave], {type: "audio/wav"}));
+    audio.play();
+*/
 
     /* show road
      var r2 = document.createElement("img");
