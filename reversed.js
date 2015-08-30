@@ -84,6 +84,22 @@ function game() {
         })
     }
 
+    function createFog(startColor, finishColor, startOffsetPercent) {
+        var tmpc = n$("canvas");
+        tmpc.width = w;
+        tmpc.height = h;
+        var tc = tmpc.getContext("2d");
+        var gradientHeight = 2*(1-startOffsetPercent)*horizon;
+        var gradientTop = startOffsetPercent*horizon;
+        var g = tc.createLinearGradient(0,gradientTop,0,gradientTop+gradientHeight);
+        g.addColorStop(0, startColor);
+        g.addColorStop(0.5, finishColor);
+        g.addColorStop(1,startColor);
+        tc.fillStyle = g;
+        //tc.fillRect(0,gradientTop,w,gradientHeight);
+        tc.fillRect(0,0,w,h);
+        return tmpc;
+    }
 
     function createBackground(skycolor) {
         var cv = n$("canvas");
@@ -289,7 +305,13 @@ function game() {
             lastx = x;
             lastz = z;
         }
+        //fog
+        //c.globalCompositeOperation = "multiply";
+        c.drawImage(fog,0,0,w,h,0,0,w,h);
+
         //render objects
+
+
 
         for (var i=0; i < objects.length; i++) {
             var o = objects[i];
@@ -480,6 +502,8 @@ function game() {
     var signWarn = createUnicodeSign(160,160,45,"white", "black", "\u26A0", "red" );
     var tree = drawUnicode("\uD83C\uDF33",160,190,"darkgreen");
 
+    var fog = createFog("rgba(255,255,255,0)","rgba(255,255,255,0.25)", 0.25);
+
 
     var checkpoint = createSign(roadwidth*w*3*1.1,100,300, "red","red",function(ctx){
         var fs = 100 * 0.65;
@@ -539,9 +563,13 @@ function game() {
     var lap = 1;
 
 
+   /* var ctx = signSlip.getContext("2d");
+    ctx.globalCompositeOperation = "source-atop";
+    ctx.fillStyle = "rgba(255,255,255,0.75)";
+    ctx.fillRect(0,0, signSlip.width, signSlip.height);*/
     //document.getElementsByTagName("body")[0].appendChild(signSlip);
     //document.getElementsByTagName("body")[0].appendChild(signWarn);
-    //document.getElementsByTagName("body")[0].appendChild(tree);
+    //document.getElementsByTagName("body")[0].appendChild(fog);
 
     requestAnimationFrame(render);
 
