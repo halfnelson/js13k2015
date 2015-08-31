@@ -238,15 +238,16 @@ function game() {
         var objects = [];
         //road pass
         //slope
-        var ddy = 0;
+        var ddy = 0.005;  //up = dy = 1, ddy = 0.005
         var dy = 1;
         var ddx = 0;
         var lasty = 0;
         var rendery = 0;
+        var lastyz = 0;
         var x=0;
         for (var ys = 0; ys < horizon; ys = ys + 1) {
-            dy = dy + ddy;
-            rendery = rendery + dy;
+          //  dy = dy + ddy;
+           // rendery = rendery + dy;
             var z = (zmap[ys] || -1) + zoffset;
             if (lastz < 0) lastz = z;
             if (z-zoffset > 80) break;
@@ -263,6 +264,10 @@ function game() {
                 zoff = lastz;
             }
 
+            var hillType = currentMap[sec][3];
+            ddy = hillTypes[hillType];//0.010;  //up = dy = 1, ddy = 0.005
+            //dy = dy + ddy;
+            rendery= rendery +dy+ ( ddy*100)*(lastz-z);
             //(1 - (ys / horizon)) * vx ensures that when the road moves left and right, the vanishing point remains the same
            // if (!yoff) {
            //     x = (1 - (ys / horizon)) * vx;
@@ -294,12 +299,14 @@ function game() {
                 c.beginPath();
                 c.drawImage(imgd, tw / 2 - w / 2 + drawx, (h - Math.floor(ys)), w, 1, 0, (h - Math.floor(rendery)), w, Math.ceil(rendery-lasty));
                 lasty = rendery;
+                lastyz = z;
             }
 
             var objs = currentMap[sec][2].filter(function(i) { return i[0] > (lastz - zoff) && i[0] <= (z - zoff)  });
             for (i = 0; i < objs.length; i++) {
                 objects.unshift([objs[i],ys,drawx,z,rendery] );
             }
+
 
             lastdx = x - lastx;
             lastx = x;
@@ -311,10 +318,22 @@ function game() {
 
         //render objects
 
+        //save context before clipping region
+        c.save();
 
-
+        //define clip;
+        c.beginPath();
+        c.rect(0,0,w,h - Math.floor(lasty));
+        c.clip();
+        var unclipped = false;
         for (var i=0; i < objects.length; i++) {
+
+
             var o = objects[i];
+            if (o[3] < lastyz) {
+                unclipped = true; //we have gone over the horizon.
+                c.restore();
+            }
             var y = o[1];
             var yrender = o[4];
             var scalefactorx = ((y-horizon)- (roadwidthend/roadwidth)*y)/horizon;
@@ -329,15 +348,17 @@ function game() {
             c.drawImage(o[0][2],0,0,ow,oh, (w/2+ x) -sw/2,(h-yrender),sw,sh );
 
         }
-
+        if (!unclipped) {
+            c.restore();
+        }
 
 
     }
 
     function drawCar() {
-        var carimg = carstraight;
-        if (carDirection == -1) carimg = carturnleft;
-        if (carDirection == 1) carimg = carturnright;
+        var carimg = carstraight[carColor];
+        if (carDirection == -1) carimg = carturnleft[carColor];
+        if (carDirection == 1) carimg = carturnright[carColor];
         c.drawImage(carimg, Math.floor(w / 2 - carimg.width / 2) + 0.5, h - carimg.height - 15);
     }
 
@@ -485,18 +506,19 @@ function game() {
     cornerTypes[1] = rightDx;
     cornerTypes[0] = []; for (var i = 0; i < horizon; i++) { cornerTypes[0][i] = 0;}
     */
-    var fullcurve = 1;
-    var scalefactor = 0.01;
-    window.setScaleFactor = function() {
 
-        scalefactor = $('sf').value;
-        cornerTypes[-1] = -1 * fullcurve* scalefactor;
-        cornerTypes[1] =  fullcurve* scalefactor;
-    }
+
 
     cornerTypes[0] = 0;
-    cornerTypes[-1] = -1 * fullcurve* scalefactor;
-    cornerTypes[1] =  fullcurve* scalefactor;
+    cornerTypes[-1] = - 0.01;
+    cornerTypes[1] =  +0.01;
+
+
+    var hillTypes = {};
+    hillTypes[0] = 0;
+    hillTypes[-1] = 0.005;
+    hillTypes[1] = -0.005;
+
 
     var signSlip = createUnicodeSign(160,160,45,"yellow","black", "\u26D0","black");
     var signWarn = createUnicodeSign(160,160,45,"white", "black", "\u26A0", "red" );
@@ -533,27 +555,82 @@ function game() {
     var justcheckpoint = [[segmentLength,0,checkpoint]];
 
     var basicmap = [
-        [0,20, objectSet],
+        [0,20, objectSet,0],
         //[-0.5,5, justcheckpoint],
-        [-1,20, trees],
-        [1,50,trees],
-        [0,20, objectSet],
-        [1, 20, objectSet]
+        [-1,20, trees,-1],
+        [1,50,trees,0],
+        [0,20, objectSet,1],
+        [1, 20, objectSet,-1]
     ];
 
+    function fromEmbeddedSVG(id, mutate) {
+        var svg  = $(id).getSVGDocument().cloneNode(true);
 
+        if (mutate) { mutate(svg) }
 
+        var xml  = new XMLSerializer().serializeToString(svg),
+            data = "data:image/svg+xml;base64," + btoa(xml),
+            img  = new Image();
+            img.setAttribute('src', data);
+            img.height = img.naturalHeight;
+            img.width = img.naturalWidth;
 
+        return img;
+    }
+
+    function swapSVGColor(svg, oldColor,newColor) {
+        var reds = svg.querySelectorAll("*[style*='fill:"+oldColor+"']");
+        for (var i=0; i < reds.length; i++) {
+            reds[i].style.fill = newColor;
+        }
+    }
 
     /* setup our car */
     var carturnspeed = 10;
     var caracceleration = 0.005;
     var carTopSpeedDisplay = 160;
-    var carstraight = $("cr");
-    var carturnright = $("crt");
-    whenLoaded(carturnright, function () {
-        carturnleft = flipImage(carturnright)
+    var carColor = "yellow";
+   function makeGreen(svg) {
+     //  swapSVGColor(svg,"#800000","#008000");
+       swapSVGColor(svg,"#550000","#005500");
+       swapSVGColor(svg,"#d40000","#00d400");
+       swapSVGColor(svg,"#aa0000","#00aa00");
+   }
+    function makeBlue(svg) {
+     //  swapSVGColor(svg,"#800000","#000080");
+        swapSVGColor(svg,"#550000","#000055");
+        swapSVGColor(svg,"#d40000","#0000d4");
+        swapSVGColor(svg,"#aa0000","#0000aa");
+    }
+    function makeGrey(svg) {
+        //swapSVGColor(svg,"#800000","#808080");
+        swapSVGColor(svg,"#550000","#555555");
+        swapSVGColor(svg,"#d40000","#d4d4d4");
+        swapSVGColor(svg,"#aa0000","#aaaaaa");
+    }
+    function makeYellow(svg) {
+        swapSVGColor(svg,"#550000","#555500");
+        swapSVGColor(svg,"#d40000","#d4d400");
+        swapSVGColor(svg,"#aa0000","#aaaa00");
+    }
+
+    var carstraight = {}, carturnright = {}, carturnleft = {};
+    [
+        ["red",null],
+        ["green", makeGreen],
+        ["blue", makeBlue],
+        ["grey", makeGrey],
+        ["yellow", makeYellow]
+    ].forEach(function(r) {
+        carstraight[r[0]]= fromEmbeddedSVG("cr",r[1]);
+        carturnright[r[0]]= fromEmbeddedSVG("crt",r[1]);
+        carturnleft[r[0]]=flipImage(carturnright[r[0]]);
     });
+
+
+
+
+
     var carDirection = 0;
     var keys = {};
 
@@ -569,7 +646,7 @@ function game() {
     ctx.fillRect(0,0, signSlip.width, signSlip.height);*/
     //document.getElementsByTagName("body")[0].appendChild(signSlip);
     //document.getElementsByTagName("body")[0].appendChild(signWarn);
-    //document.getElementsByTagName("body")[0].appendChild(fog);
+    //document.getElementsByTagName("body")[0].appendChild(greenCar);
 
     requestAnimationFrame(render);
 
@@ -586,17 +663,18 @@ function game() {
     });
 
     //music
-    /*
+/*
     var player = new CPlayer();
     player.init(song);
 
-    //while (player.generate() < 1) { }
+    while (player.generate() < 1) { }
     var wave = player.createWave();
     var audio = document.createElement("audio");
     audio.src = URL.createObjectURL(new Blob([wave], {type: "audio/wav"}));
     audio.play();
-*/
+    audio.loop = true;
 
+*/
     /* show road
      var r2 = document.createElement("img");
      r2.src = tv2.toDataURL('image/png');
@@ -605,4 +683,5 @@ function game() {
      r2d = t2.getImageData(0,0,tw,h);
      */
 }
-game();
+window.addEventListener("load", game, false);
+//game();

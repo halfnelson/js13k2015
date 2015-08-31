@@ -11,8 +11,8 @@ h1 {
     color: lawngreen;
     font-family: monospace;
 }
-img {
-    display:none;
+embed {
+    visibility: hidden;
 }
 .gs canvas {
     width: 100%;
