@@ -89,9 +89,10 @@ function game() {
         tmpc.width = img.width;
         tmpc.height = img.height;
         var tc = tmpc.getContext("2d");
-        tc.drawImage(img,0,0,0,0);
+        tc.drawImage(img,0,0,img.width,img.height, 0,0,img.width, img.height);
+        document.body.appendChild(tmpc);
         tc.globalCompositeOperation = "source-atop";
-        tc.fillStyle = "rgb(255,255,255)";
+        tc.fillStyle = "rgba(255,255,255,1.0)";
         tc.fillRect(0,0, tmpc.width, tmpc.height);
         return tmpc;
     }
@@ -112,6 +113,18 @@ function game() {
         tc.fillRect(0,0,w,h);
         return tmpc;
     }
+
+    function getFogSample(img) {
+        var ct = img.getContext("2d");
+        var fogdata = ct.getImageData(0,h - horizon,1,horizon);
+        var fogalpha = [];
+        for(var i = 0; i < horizon; i++ ) {
+            fogalpha.push(fogdata.data[i*4+3]);
+        }
+        console.log(fogalpha);
+        return fogalpha;
+    }
+
 
     function createBackground(skycolor) {
         var cv = n$("canvas");
@@ -357,8 +370,13 @@ function game() {
 
             //now apply fog
             //todo don't use getimagedata here, use a lookup built when we created the fog.
+            var pointAlpha = fogAlpha[horizon - y]/255;
+            c.save();
+            c.globalAlpha = pointAlpha;
+            c.drawImage(o[0][2]['m'],0,0,ow,oh, (w/2+ x) -sw/2,(h-yrender),sw,sh );
+            c.restore();
             /*var fogAtPoint = fog.getImageData(0,y,1,1);
-            var alphaAtPoint = fogAtPoint.data[3]/255;
+            var alphaAtPoint = fogAp
             c.save();
             c.globalAlpha = alphaAtPoint;
             c.drawImage(o[0][2]['m'],0,0,ow,oh, (w/2+ x) -sw/2,(h-yrender),sw,sh );
@@ -567,7 +585,8 @@ function game() {
     );
 
 
-    var fog = createFog("rgba(255,255,255,0)","rgba(255,255,255,0.25)", 0.25);
+    var fog = createFog("rgba(255,255,255,0)","rgba(255,255,255,0.20)", 0.45);
+    var fogAlpha = getFogSample(fog); //a sample of or fogs alpha so we can apply it to objects after seen has been rendered
     var objectSet = [];
     function objectRepeat(type, offset, startDist, distBetween, count) {
         var r = [];
