@@ -84,6 +84,18 @@ function game() {
         })
     }
 
+    function createMask(img) {
+        var tmpc = n$("canvas");
+        tmpc.width = img.width;
+        tmpc.height = img.height;
+        var tc = tmpc.getContext("2d");
+        tc.drawImage(img,0,0,0,0);
+        tc.globalCompositeOperation = "source-atop";
+        tc.fillStyle = "rgb(255,255,255)";
+        tc.fillRect(0,0, tmpc.width, tmpc.height);
+        return tmpc;
+    }
+
     function createFog(startColor, finishColor, startOffsetPercent) {
         var tmpc = n$("canvas");
         tmpc.width = w;
@@ -147,13 +159,7 @@ function game() {
         return img;
     }
 
-    function whenLoaded(image, callback) {
-        if (image.naturalWidth != 0) {
-            callback();
-        } else {
-            image.addEventListener("load", callback);
-        }
-    }
+
 
 
     function calcZMap() {
@@ -168,6 +174,7 @@ function game() {
 //where sharpness of 1 is max right, and 0 sharpness is a straight line
 //and direction = -1 for left turn +1 for right turn
 // x = ±(a sqrt(b^2-y^2))/b and b!=0 and a!=0
+    /*
     function calculateXMap(sharpness, direction) {
         var a = w / 2 * sharpness;
         var b = horizon;
@@ -178,11 +185,11 @@ function game() {
         xmap[0] = 0;
         return adjustcurveperspective(xmap);
     }
-
+*/
     function calculateMaps() {
         zmap = calcZMap();
-        rightDx = calculateXMap(1, 1);
-        leftDx = calculateXMap(1, -1);
+  //      rightDx = calculateXMap(1, 1);
+    //    leftDx = calculateXMap(1, -1);
 
     }
 
@@ -339,13 +346,25 @@ function game() {
             var scalefactorx = ((y-horizon)- (roadwidthend/roadwidth)*y)/horizon;
             x = (-1*o[2]+  o[0][1]*(w/2)*scalefactorx*roadwidth*3);//  , (y/horizon)*scalefactorx + o[2]
 
-            var ow = o[0][2].width;
-            var oh = o[0][2].height;
+            var ow = o[0][2]['i'].width;
+
+            var oh = o[0][2]['i'].height;
 
             var sw = ow * scalefactorx;
             var sh = oh * scalefactorx;
 
-            c.drawImage(o[0][2],0,0,ow,oh, (w/2+ x) -sw/2,(h-yrender),sw,sh );
+            c.drawImage(o[0][2]['i'],0,0,ow,oh, (w/2+ x) -sw/2,(h-yrender),sw,sh );
+
+            //now apply fog
+            //todo don't use getimagedata here, use a lookup built when we created the fog.
+            /*var fogAtPoint = fog.getImageData(0,y,1,1);
+            var alphaAtPoint = fogAtPoint.data[3]/255;
+            c.save();
+            c.globalAlpha = alphaAtPoint;
+            c.drawImage(o[0][2]['m'],0,0,ow,oh, (w/2+ x) -sw/2,(h-yrender),sw,sh );
+            c.restore();
+*/
+
 
         }
         if (!unclipped) {
@@ -519,22 +538,29 @@ function game() {
     hillTypes[-1] = 0.005;
     hillTypes[1] = -0.005;
 
+    function createObject(img) {
+        return {i: img, m: createMask(img)};
+    }
 
-    var signSlip = createUnicodeSign(160,160,45,"yellow","black", "\u26D0","black");
-    var signWarn = createUnicodeSign(160,160,45,"white", "black", "\u26A0", "red" );
-    var tree = drawUnicode("\uD83C\uDF33",160,190,"darkgreen");
+    var signSlip = createObject(createUnicodeSign(160,160,45,"yellow","black", "\u26D0","black"));
+    var signWarn = createObject(createUnicodeSign(160,160,45,"white", "black", "\u26A0", "red" ));
+    var tree = createObject(drawUnicode("\uD83C\uDF33",160,190,"darkgreen"));
+
+    //signSlip.m = createMask(signSlip.i);
+
+
+
+    var checkpoint = createObject(createSign(roadwidth*w*3*1.1,100,300, "red","red",function(ctx){
+            var fs = 100 * 0.65;
+            ctx.font = "normal normal bold "+fs+"px Arial";
+            ctx.textAlign = "center";
+            ctx.fillStyle = "white";
+            ctx.fillText("Checkpoint", roadwidth*w*3*1.1/2,100/2+fs/4);
+        })
+    );
+
 
     var fog = createFog("rgba(255,255,255,0)","rgba(255,255,255,0.25)", 0.25);
-
-
-    var checkpoint = createSign(roadwidth*w*3*1.1,100,300, "red","red",function(ctx){
-        var fs = 100 * 0.65;
-        ctx.font = "normal normal bold "+fs+"px Arial";
-        ctx.textAlign = "center";
-        ctx.fillStyle = "white";
-        ctx.fillText("Checkpoint", roadwidth*w*3*1.1/2,100/2+fs/4);
-    });
-
     var objectSet = [];
     function objectRepeat(type, offset, startDist, distBetween, count) {
         var r = [];
