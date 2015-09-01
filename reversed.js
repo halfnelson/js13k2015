@@ -400,7 +400,7 @@ function game() {
             lap++;
         }
         var pulldir = currentMap[currentSection][0];
-        var pullamount = pulldir*carturnspeed * (vy*vy / maxvy*maxvy);
+        var pullamount = pulldir*carturnspeed * ((vy*vy*vy*vy*vy) / (maxvy*maxvy*maxvy*maxvy*maxvy))*1.05;
 
         backgroundoffset = (backgroundoffset + pullamount/3) % tw;
 
@@ -439,10 +439,17 @@ function game() {
             if (vy < maxvy) {
                 vy = vy + caracceleration
             }
+
         }
         if (keys["Down"]) {
-                vy = vy - caracceleration;
+                vy = vy - caracceleration*2;
                 if (vy < -1*maxvy/3) vy = -1*maxvy/3;
+
+        }
+
+        if (!keys["Down"] && !keys["Up"]) {
+            var nvy = vy - caracceleration /3;
+            if (nvy > 0) vy = nvy;
 
         }
     }
@@ -510,8 +517,8 @@ function game() {
 
 
     cornerTypes[0] = 0;
-    cornerTypes[-1] = - 0.01;
-    cornerTypes[1] =  +0.01;
+    cornerTypes[-1] = - 0.02; //0.01
+    cornerTypes[1] =  +0.02;
 
 
     var hillTypes = {};
