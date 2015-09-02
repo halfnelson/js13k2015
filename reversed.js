@@ -33,7 +33,7 @@ function game() {
         poly(c, color, [r1, r2, r3, r4]);
     }
 
-    function drawRoadTexture(grassColor, roadColor, sideRoadColor, lineColor) {
+    function drawRoadTexture(grassColor, roadColor, sideRoadColor, lineColor, fog) {
         var cv = n$("canvas");
         cv.width = tw;
         cv.height = h;
@@ -53,19 +53,39 @@ function game() {
         drawline(c, lineColor, 0.25, lineWidth);
         drawline(c, lineColor, 0, lineWidth);
         drawline(c, lineColor, -0.25, lineWidth);
+
+        if (fog) {
+            c.save();
+            c.scale(1,-1);
+            c.drawImage(fog, 0, 0, w, horizon, 0, -h/2, tw, -h/2);
+            c.restore();
+        }
         return cv;
     }
 
-    function createTunnel() {
+    function createTunnel(entry,darkness) {
         var tmpc = n$("canvas");
         tmpc.width = roadwidth*tw;
         tmpc.height = h;
         var tc = tmpc.getContext("2d");
-        tc.fillStyle = "black";
-        tc.fillRect(0,0,tmpc.width,h/3);
-        //tc.fillRect(0,0,w*5-roadwidth*4*w/2,h);
-        //tc.fillRect(w*5+roadwidth*4*w,0,w*5,h);
+
+        tc.fillStyle = entry ? "#CCCCCC" :  "black";
+        tc.fillRect(0,0,tmpc.width,darkness ? h : (h/3));
         return tmpc;
+    }
+
+    function createTunnelLight() {
+        var size = 20;
+        var tmpc = n$("canvas");
+        tmpc.width = size;
+        tmpc.height = 2*h/3;
+        var tc = tmpc.getContext("2d");
+        tc.fillStyle="yellow";
+        tc.beginPath();
+        tc.arc(size/2,0,size/2,0, Math.PI);
+        tc.fill();
+        return tmpc;
+
     }
 
     function createSign(w, h, gh, color, borderColor, contentCallback ) {
@@ -102,7 +122,7 @@ function game() {
         tmpc.height = img.height;
         var tc = tmpc.getContext("2d");
         tc.drawImage(img,0,0,img.width,img.height, 0,0,img.width, img.height);
-        document.body.appendChild(tmpc);
+
         tc.globalCompositeOperation = "source-atop";
         tc.fillStyle = "rgba(255,255,255,1.0)";
         tc.fillRect(0,0, tmpc.width, tmpc.height);
@@ -112,41 +132,43 @@ function game() {
     function createFog(startColor, finishColor, startOffsetPercent) {
         var tmpc = n$("canvas");
         tmpc.width = w;
-        tmpc.height = h;
+        tmpc.height = horizon;
         var tc = tmpc.getContext("2d");
-        var gradientHeight = 2*(1-startOffsetPercent)*horizon;
+        var gradientHeight = (1-startOffsetPercent)*horizon;
         var gradientTop = startOffsetPercent*horizon;
         var g = tc.createLinearGradient(0,gradientTop,0,gradientTop+gradientHeight);
         g.addColorStop(0, startColor);
-        g.addColorStop(0.5, finishColor);
-        g.addColorStop(1,startColor);
+        g.addColorStop(1, finishColor);
+        //g.addColorStop(1,startColor);
         tc.fillStyle = g;
         //tc.fillRect(0,gradientTop,w,gradientHeight);
-        tc.fillRect(0,0,w,h);
+        tc.fillRect(0,0,w,horizon);
         return tmpc;
     }
 
     function getFogSample(img) {
         var ct = img.getContext("2d");
-        var fogdata = ct.getImageData(0,h - horizon,1,horizon);
+        var fogdata = ct.getImageData(0,0,1,horizon);
         var fogalpha = [];
         for(var i = 0; i < horizon; i++ ) {
             fogalpha.push(fogdata.data[i*4+3]);
         }
-        console.log(fogalpha);
         return fogalpha;
     }
 
 
-    function createBackground(skycolor) {
+    function createBackground(skycolor, groundcolor, fog) {
         var cv = n$("canvas");
         cv.width = tw;
         cv.height = h;
         var c = cv.getContext("2d");
 
-        c.rect(0, 0, tw, h);
+
         c.fillStyle = skycolor;
-        c.fill();
+        c.fillRect(0,0,tw,h);
+        c.fillStyle=groundcolor;
+        c.fillRect(0,h/2+5,tw,h/2);
+
 
         var fs = h * 0.35;
 
@@ -162,6 +184,12 @@ function game() {
             c.font = h*clds[i][2]+"px Arial";
             c.fillText("\u2601",clds[i][0],clds[i][1]+30);
         }
+
+        if (fog) {
+            c.drawImage(fog, 0, 0, w, horizon, 0, 0, tw, h-horizon+5);
+            c.drawImage(fog, 0, horizon-1,w,1,0,h/2+5,tw,h/2);
+        }
+
         return cv;
 
     }
@@ -277,13 +305,18 @@ function game() {
         var rendery = 0;
         var lastyz = 0;
         var x=0;
+        var isTunnelEntry = false;
+        var isTunnelExit = false;
+        var hasTunnelExit = false;
+        var theTunnelEntry = null;
         for (var ys = 0; ys < horizon; ys = ys + 1) {
           //  dy = dy + ddy;
            // rendery = rendery + dy;
             var z = (zmap[ys] || -1) + zoffset;
             if (lastz < 0) lastz = z;
             if (z-zoffset > 80) break;
-
+            isTunnelEntry = false;
+            isTunnelExit = false;
             //TODO this should be based on the current part of the map, not hardcoded rightDx[ys]
             //get our section for this y
             var sec = sectionFromOffset(z);
@@ -291,9 +324,24 @@ function game() {
                 yoff = ys;
                 xoff = lastx;
                 dx = lastdx;
+
+                if (currentMap[sec][4] && !currentMap[lastSec][4] )  { //tunnel?
+                    isTunnelEntry = true;
+                }
+
+
                 lastSec = sec;
                 changeover = ys;
                 zoff = lastz;
+            }
+
+
+            //look ahead to see if this is last tunnel ys
+            if (currentMap[sec][4] && ((ys + 1) < horizon) ) {
+                var tmpsec = sectionFromOffset((zmap[ys+1] || -1) + zoffset);
+                if (!currentMap[tmpsec][4]) {
+                    isTunnelExit=true;
+                }
             }
 
             var hillType = currentMap[sec][3];
@@ -334,9 +382,21 @@ function game() {
                 lastyz = z;
             }
 
+
             var objs = currentMap[sec][2].filter(function(i) { return i[0] > (lastz - zoff) && i[0] <= (z - zoff)  });
             for (i = 0; i < objs.length; i++) {
                 objects.unshift([objs[i],ys,drawx,z,rendery] );
+            }
+
+            if (isTunnelEntry) {
+                hasTunnelExit = false;
+                theTunnelEntry = [[0,0,tunnelEntry],ys,drawx,z,rendery];
+                objects.unshift(theTunnelEntry);
+            }
+
+            if (isTunnelExit) {
+                hasTunnelExit = true;
+                objects.unshift([[0,0,tunnel],ys,drawx,z,rendery]);
             }
 
 
@@ -344,9 +404,12 @@ function game() {
             lastx = x;
             lastz = z;
         }
+
+
+
         //fog
         //c.globalCompositeOperation = "multiply";
-        c.drawImage(fog,0,0,w,h,0,0,w,h);
+        //c.drawImage(fog,0,0,w,h,0,0,w,h);
 
         //render objects
 
@@ -357,6 +420,20 @@ function game() {
         c.beginPath();
         c.rect(0,0,w,h - Math.floor(lasty));
         c.clip();
+
+        //if we are in a tunnel and can't see the exit. It is all black
+        if ( !hasTunnelExit) {
+            if (currentMap[currentSection][4] || theTunnelEntry) {
+                objects.unshift([
+                    [0, 0, tunnelDarkness],
+                        horizon - 1,
+                    0,
+                    z,
+                    lasty
+                ]);
+            }
+        }
+
         var unclipped = false;
         for (var i=0; i < objects.length; i++) {
 
@@ -383,7 +460,7 @@ function game() {
             //now apply fog
             //todo don't use getimagedata here, use a lookup built when we created the fog.
             if (o[0][2]['m']) {
-                var pointAlpha = fogAlpha[horizon - y]/255;
+                var pointAlpha = fogAlpha[ y]/255;
                 c.save();
                 c.globalAlpha = pointAlpha;
                 c.drawImage(o[0][2]['m'],0,0,ow,oh, (w/2+ x) -sw/2,(h-yrender),sw,sh );
@@ -391,13 +468,24 @@ function game() {
             }
 
             //apply tunnel code
-            if (o[0][2] == tunnel) {
-                c.fillStyle = "black";
-                c.fillRect(0,h-yrender,(w/2+ x) -sw/2,yrender)
+            if (o[0][2] == tunnel || o[0][2] == tunnelEntry || o[0][2] == tunnelDarkness) {
 
+                c.fillStyle = o[0][2] == tunnelEntry ? "#cccccc":  "black" ;
+                //sides
+                c.fillRect(0,(h-yrender)+1,(w/2+ x) +sw/2+1,sh-1);
+                c.fillRect((w/2+x)-sw/2-1,(h-yrender)+1,w - ((w/2+x)-sw/2),sh-1);
+                //top if we are in the tunnel
+                if (currentMap[currentSection][4]) {
+                    c.fillRect(0,0,w,(h- (h-yrender))+3);
+                }
 
+                if (theTunnelEntry && (o[0][2] != tunnelEntry) ) {
+                   var tey = theTunnelEntry[1];
+                    var sfy = ((tey-horizon)- (roadwidthend/roadwidth)*tey)/horizon;
+                    var teh = sfy*tunnelEntry.i.height;
+                    c.fillRect(0,h-theTunnelEntry[4]+teh, w ,(h-yrender)- (h-theTunnelEntry[4]+teh) +2 );
 
-
+                }
             }
             /*var fogAtPoint = fog.getImageData(0,y,1,1);
             var alphaAtPoint = fogAp
@@ -558,8 +646,12 @@ function game() {
     var sideRoadWidth = 0.05 / 2;
     var lineWidth = 0.015;
 
-    var road1 = drawRoadTexture("#224400", "#314430", "white", "white");
-    var road2 = drawRoadTexture("#325611", "#435443", "#314430", "#435443");
+
+    var fog = createFog("rgba(255,255,255,0)","rgba(255,255,255,0.25)", 0.25);
+
+    var road1 = drawRoadTexture("#224400", "#314430", "white", "white",fog);
+    var road2 = drawRoadTexture("#325611", "#435443", "#314430", "#435443",fog);
+
 
 
     var tunnelRoad1 = drawRoadTexture("black", "#314430", "white", "white");
@@ -567,7 +659,7 @@ function game() {
 
 
     var backgroundoffset = 0;
-    var background = createBackground("blue");
+    var background = createBackground("blue","#325611", fog);
 
 //map
     //map [[ corner type, number of segments ]]
@@ -602,7 +694,7 @@ function game() {
 
     //signSlip.m = createMask(signSlip.i);
 
-
+    var tunnelLight = {i: createTunnelLight()};
 
     var checkpoint = createObject(createSign(roadwidth*w*3*1.1,100,300, "red","red",function(ctx){
             var fs = 100 * 0.65;
@@ -614,9 +706,10 @@ function game() {
     );
 
     var tunnel = { i: createTunnel() };
+    var tunnelEntry = { i: createTunnel(true) };
+    var tunnelDarkness = { i: createTunnel(false,true) };
 
 
-    var fog = createFog("rgba(255,255,255,0)","rgba(255,255,255,0.20)", 0.45);
     var fogAlpha = getFogSample(fog); //a sample of or fogs alpha so we can apply it to objects after seen has been rendered
     var objectSet = [];
     function objectRepeat(type, offset, startDist, distBetween, count) {
@@ -637,17 +730,19 @@ function game() {
 
     var justcheckpoint = [[segmentLength,0,checkpoint]];
 
-    var tunnels = [];
-    tunnels = tunnels.concat(objectRepeat(tunnel,0,0,segmentLength,20));
+
+    var tunnelLights = [];
+    tunnelLights = tunnelLights.concat(objectRepeat(tunnelLight,0,0,segmentLength,20));
+
     var basicmap = [
-        [0,20, objectSet,0],
+        [0,20, objectSet,0,false],
 
         //[-0.5,5, justcheckpoint],
-        [-1,20, trees,-1],
-        [0,20, tunnels, 0],
-        [1,50,trees,0],
-        [0,20, objectSet,1],
-        [1, 20, objectSet,-1]
+        [-1,20, trees,-1,false],
+        [0,20, tunnelLights, 0,true],
+        [1,50,trees,0,false],
+        [0,20, objectSet,1,false],
+        [1, 20, objectSet,-1,false]
     ];
 
     function fromEmbeddedSVG(id, mutate) {
