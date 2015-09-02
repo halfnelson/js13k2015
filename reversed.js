@@ -56,8 +56,9 @@ function game() {
 
         if (fog) {
             c.save();
+            c.translate(0,h);
             c.scale(1,-1);
-            c.drawImage(fog, 0, 0, w, horizon, 0, -h/2, tw, -h/2);
+            c.drawImage(fog, 0, 0, w, horizon, 0, 0, tw, h/2);
             c.restore();
         }
         return cv;
