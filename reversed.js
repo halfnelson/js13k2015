@@ -171,7 +171,7 @@ function game() {
         c.fillRect(0,h/2+5,tw,h/2);
 
 
-        var fs = h * 0.35;
+
 
         c.fillStyle = "white";
 
@@ -378,7 +378,7 @@ function game() {
             if ((Math.ceil(rendery - lasty)) > 0) {
 
                 c.beginPath();
-                c.drawImage(imgd, tw / 2 - w / 2 + drawx, (h - Math.floor(ys)), w, 1, 0, (h - Math.floor(rendery)), w, Math.ceil(rendery-lasty));
+                c.drawImage(imgd, tw / 2 - w / 2 + drawx, (h - Math.floor(ys)), w, 1, 0, (h - Math.floor(rendery)), w, Math.ceil(rendery-lasty)+0.5);
                 lasty = rendery;
                 lastyz = z;
             }
@@ -456,15 +456,16 @@ function game() {
             var sw = ow * scalefactorx;
             var sh = oh * scalefactorx;
 
-            c.drawImage(o[0][2]['i'],0,0,ow,oh, (w/2+ x) -sw/2,(h-yrender),sw,sh );
+            c.drawImage(o[0][2]['i'],0,0,ow,oh, (w/2+ x) -sw/2+sw,(h-yrender)+sh,-1*sw,-1*sh );
 
             //now apply fog
             //todo don't use getimagedata here, use a lookup built when we created the fog.
+
             if (o[0][2]['m']) {
                 var pointAlpha = fogAlpha[ y]/255;
                 c.save();
                 c.globalAlpha = pointAlpha;
-                c.drawImage(o[0][2]['m'],0,0,ow,oh, (w/2+ x) -sw/2,(h-yrender),sw,sh );
+                c.drawImage(o[0][2]['m'],0,0,ow,oh, (w/2+ x) -sw/2+sw,(h-yrender)+sh,-1*sw,-1*sh );
                 c.restore();
             }
 
@@ -844,12 +845,12 @@ function game() {
     requestAnimationFrame(render);
 
     document.addEventListener("keyup", function (e) {
-        var key = e.keyIdentifier;
+        var key = e.key || e.keyIdentifier;
         keys[key] = false;
     });
 
     document.addEventListener("keydown", function (e) {
-        var key = e.keyIdentifier;
+        var key = e.key || e.keyIdentifier;
         keys[key] = true;
         e.preventDefault();
         return false;
