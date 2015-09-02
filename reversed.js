@@ -56,6 +56,18 @@ function game() {
         return cv;
     }
 
+    function createTunnel() {
+        var tmpc = n$("canvas");
+        tmpc.width = roadwidth*tw;
+        tmpc.height = h;
+        var tc = tmpc.getContext("2d");
+        tc.fillStyle = "black";
+        tc.fillRect(0,0,tmpc.width,h/3);
+        //tc.fillRect(0,0,w*5-roadwidth*4*w/2,h);
+        //tc.fillRect(w*5+roadwidth*4*w,0,w*5,h);
+        return tmpc;
+    }
+
     function createSign(w, h, gh, color, borderColor, contentCallback ) {
         var tmpc = n$("canvas");
         tmpc.width = w;
@@ -312,7 +324,7 @@ function game() {
             //TODO hills
 
             var isr1 = Math.floor(z / segmentLength) % 2 == 0;
-            var imgd = isr1 ? road1 : road2;
+            var imgd = (sec == 2) ? (isr1 ? tunnelRoad1 : tunnelRoad2 ): (isr1 ? road1 : road2);
 
             if ((Math.ceil(rendery - lasty)) > 0) {
 
@@ -370,11 +382,23 @@ function game() {
 
             //now apply fog
             //todo don't use getimagedata here, use a lookup built when we created the fog.
-            var pointAlpha = fogAlpha[horizon - y]/255;
-            c.save();
-            c.globalAlpha = pointAlpha;
-            c.drawImage(o[0][2]['m'],0,0,ow,oh, (w/2+ x) -sw/2,(h-yrender),sw,sh );
-            c.restore();
+            if (o[0][2]['m']) {
+                var pointAlpha = fogAlpha[horizon - y]/255;
+                c.save();
+                c.globalAlpha = pointAlpha;
+                c.drawImage(o[0][2]['m'],0,0,ow,oh, (w/2+ x) -sw/2,(h-yrender),sw,sh );
+                c.restore();
+            }
+
+            //apply tunnel code
+            if (o[0][2] == tunnel) {
+                c.fillStyle = "black";
+                c.fillRect(0,h-yrender,(w/2+ x) -sw/2,yrender)
+
+
+
+
+            }
             /*var fogAtPoint = fog.getImageData(0,y,1,1);
             var alphaAtPoint = fogAp
             c.save();
@@ -537,6 +561,11 @@ function game() {
     var road1 = drawRoadTexture("#224400", "#314430", "white", "white");
     var road2 = drawRoadTexture("#325611", "#435443", "#314430", "#435443");
 
+
+    var tunnelRoad1 = drawRoadTexture("black", "#314430", "white", "white");
+    var tunnelRoad2 = drawRoadTexture("black", "#435443", "#314430", "#435443");
+
+
     var backgroundoffset = 0;
     var background = createBackground("blue");
 
@@ -584,6 +613,8 @@ function game() {
         })
     );
 
+    var tunnel = { i: createTunnel() };
+
 
     var fog = createFog("rgba(255,255,255,0)","rgba(255,255,255,0.20)", 0.45);
     var fogAlpha = getFogSample(fog); //a sample of or fogs alpha so we can apply it to objects after seen has been rendered
@@ -606,10 +637,14 @@ function game() {
 
     var justcheckpoint = [[segmentLength,0,checkpoint]];
 
+    var tunnels = [];
+    tunnels = tunnels.concat(objectRepeat(tunnel,0,0,segmentLength,20));
     var basicmap = [
         [0,20, objectSet,0],
+
         //[-0.5,5, justcheckpoint],
         [-1,20, trees,-1],
+        [0,20, tunnels, 0],
         [1,50,trees,0],
         [0,20, objectSet,1],
         [1, 20, objectSet,-1]
@@ -637,41 +672,51 @@ function game() {
         }
     }
 
+
+    function swapSVGColors(svg,colors) {
+        for (var i=0; i < colors.length; i++) {
+            swapSVGColor(svg,colors[i][0], colors[i][1]);
+        }
+    }
     /* setup our car */
     var carturnspeed = 10;
     var caracceleration = 0.005;
     var carTopSpeedDisplay = 160;
-    var carColor = "yellow";
+    var carColor = "grey";
    function makeGreen(svg) {
      //  swapSVGColor(svg,"#800000","#008000");
-       swapSVGColor(svg,"#550000","#005500");
-       swapSVGColor(svg,"#d40000","#00d400");
-       swapSVGColor(svg,"#aa0000","#00aa00");
+     //  lighter -> darker
+     // 'f2f2f2','#e6e6e6','#cccccc','#b3b3b3'
+      swapSVGColors(svg,[['#f2f2f2','#00f200'],
+                         ['#e6e6e6','#00e600'],
+                         ['#cccccc','#00cc00'],
+                         ['#b3b3b3','#00b300']]);
    }
     function makeBlue(svg) {
-     //  swapSVGColor(svg,"#800000","#000080");
-        swapSVGColor(svg,"#550000","#000055");
-        swapSVGColor(svg,"#d40000","#0000d4");
-        swapSVGColor(svg,"#aa0000","#0000aa");
+        swapSVGColors(svg,[['#f2f2f2','#0000f2'],
+            ['#e6e6e6','#0000e6'],
+            ['#cccccc','#0000cc'],
+            ['#b3b3b3','#0000b3']]);
     }
-    function makeGrey(svg) {
-        //swapSVGColor(svg,"#800000","#808080");
-        swapSVGColor(svg,"#550000","#555555");
-        swapSVGColor(svg,"#d40000","#d4d4d4");
-        swapSVGColor(svg,"#aa0000","#aaaaaa");
+    function makeRed(svg) {
+        swapSVGColors(svg,[['#f2f2f2','#f20000'],
+            ['#e6e6e6','#e60000'],
+            ['#cccccc','#cc0000'],
+            ['#b3b3b3','#b30000']]);
     }
     function makeYellow(svg) {
-        swapSVGColor(svg,"#550000","#555500");
-        swapSVGColor(svg,"#d40000","#d4d400");
-        swapSVGColor(svg,"#aa0000","#aaaa00");
+        swapSVGColors(svg,[['#f2f2f2','#f2f200'],
+            ['#e6e6e6','#e6e600'],
+            ['#cccccc','#cccc00'],
+            ['#b3b3b3','#b3b300']]);
     }
 
     var carstraight = {}, carturnright = {}, carturnleft = {};
     [
-        ["red",null],
+        ["red",makeRed],
         ["green", makeGreen],
         ["blue", makeBlue],
-        ["grey", makeGrey],
+        ["grey", null],
         ["yellow", makeYellow]
     ].forEach(function(r) {
         carstraight[r[0]]= fromEmbeddedSVG("cr",r[1]);
@@ -725,8 +770,8 @@ function game() {
     audio.src = URL.createObjectURL(new Blob([wave], {type: "audio/wav"}));
     audio.play();
     audio.loop = true;
-
 */
+
     /* show road
      var r2 = document.createElement("img");
      r2.src = tv2.toDataURL('image/png');
