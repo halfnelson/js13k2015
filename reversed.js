@@ -507,7 +507,7 @@ function game() {
     }
 
     function drawCar() {
-        var carimg = carstraight[carColor];
+        var carimg = carReverse ? carfront[carColor] : carstraight[carColor];
         if (carDirection == -1) carimg = carturnleft[carColor];
         if (carDirection == 1) carimg = carturnright[carColor];
         c.drawImage(carimg, Math.floor(w / 2 - carimg.width / 2) + 0.5, h - carimg.height - 15);
@@ -603,6 +603,7 @@ function game() {
             if (nvy > 0) vy = nvy;
 
         }
+
     }
 
 
@@ -779,6 +780,7 @@ function game() {
     var carturnspeed = 10;
     var caracceleration = 0.005;
     var carTopSpeedDisplay = 160;
+    var carReverse = false;
     var carColor = "grey";
    function makeGreen(svg) {
      //  swapSVGColor(svg,"#800000","#008000");
@@ -808,7 +810,7 @@ function game() {
             ['#b3b3b3','#b3b300']]);
     }
 
-    var carstraight = {}, carturnright = {}, carturnleft = {};
+    var carstraight = {}, carturnright = {}, carturnleft = {}, carfront = {};
     [
         ["red",makeRed],
         ["green", makeGreen],
@@ -818,6 +820,7 @@ function game() {
     ].forEach(function(r) {
         carstraight[r[0]]= fromEmbeddedSVG("cr",r[1]);
         carturnright[r[0]]= fromEmbeddedSVG("crt",r[1]);
+        carfront[r[0]]=fromEmbeddedSVG("crf",r[1]);
         carturnleft[r[0]]=flipImage(carturnright[r[0]]);
     });
 
@@ -852,6 +855,7 @@ function game() {
     document.addEventListener("keydown", function (e) {
         var key = e.key || e.keyIdentifier;
         keys[key] = true;
+        if (key == "U+0020") carReverse = !carReverse;
         e.preventDefault();
         return false;
     });
