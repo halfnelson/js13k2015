@@ -310,10 +310,11 @@ function game() {
         var isTunnelExit = false;
         var hasTunnelExit = false;
         var theTunnelEntry = null;
+        var z = 0;
         for (var ys = 0; ys < horizon; ys = ys + 1) {
           //  dy = dy + ddy;
            // rendery = rendery + dy;
-            var z = (zmap[ys] || -1) + zoffset;
+            z = (zmap[ys] || -1) + zoffset;
             if (lastz < 0) lastz = z;
             if (z-zoffset > 80) break;
             isTunnelEntry = false;
@@ -324,14 +325,14 @@ function game() {
             if (sec != lastSec) {
                 yoff = ys;
                 xoff = lastx;
-                dx = lastdx;
+                lastdx= dx*(z-lastz);
 
                 if (currentMap[sec][4] && !currentMap[lastSec][4] )  { //tunnel?
                     isTunnelEntry = true;
                 }
 
 
-                lastSec = sec;
+
                 changeover = ys;
                 zoff = lastz;
             }
@@ -358,8 +359,9 @@ function game() {
             dx = cornerTypes[cornertype]*100;
             //ddx = ddx + dx;
 
+
             var xoffadj = ((1 - (ys / horizon)) * vx);
-            x=x + dx * (lastz-z);//  +ddx;//+xoffadj;
+            x=x + dx * (lastz-z) - lastdx;  //* (lastz-z) ;//  +ddx;//+xoffadj;
 
             var drawx = x +xoffadj;
 
@@ -400,8 +402,8 @@ function game() {
                 objects.unshift([[0,0,tunnel],ys,drawx,z,rendery]);
             }
 
-
-            lastdx = x - lastx;
+            lastSec = sec;
+            //lastdx = x - lastx;
             lastx = x;
             lastz = z;
         }
@@ -764,7 +766,7 @@ function game() {
     }
 
     function swapSVGColor(svg, oldColor,newColor) {
-        var reds = svg.querySelectorAll("*[style*='fill:"+oldColor+"']");
+        var reds = svg.querySelectorAll("*[fill='"+oldColor+"']");
         for (var i=0; i < reds.length; i++) {
             reds[i].style.fill = newColor;
         }
@@ -781,7 +783,7 @@ function game() {
     var caracceleration = 0.005;
     var carTopSpeedDisplay = 160;
     var carReverse = false;
-    var carColor = "grey";
+    var carColor = "blue";
    function makeGreen(svg) {
      //  swapSVGColor(svg,"#800000","#008000");
      //  lighter -> darker
