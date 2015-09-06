@@ -50,11 +50,11 @@ function game() {
 
 
     Map.objs = {
-        signSlip : 0,
-        signWarn : 1,
-        tree: 2,
-        tunnelLight: 3,
-        checkpoint: 4
+        signSlip : {id: 0, width: 0.5},
+        signWarn : {id: 1, width: 0.5},
+        tree: {id: 2, width: 0.15},
+        tunnelLight: {id: 3},
+        checkpoint: {id: 4}
     };
 
     Map.cornerTypes = {
@@ -477,7 +477,7 @@ function game() {
                 for (i = 0; i < objectInstances.length; i++) {
                     //o[0][0] = z, o[0][1]=x, o[0][2]=objecttype, o[1] = ys, o[2]=drawx, o[3]=z, o[4]=rendery
                     objects.unshift(renderObj(
-                        objs[objectInstances[i][2]],
+                        objs[objectInstances[i][2].id],
                         (-1*drawx+  objectInstances[i][1]*(tw/2)*scaleFactor*roadwidth),
                         rendery,
                         z,
@@ -721,7 +721,7 @@ function game() {
 
 
         /* setup our two road textures to produce the effect of moving forward */
-        var roadwidth = 1.5 / 3;
+       // var roadwidth = 1.5 / 3;
         var roadwidthend = 0.04 / 3;
         var sideRoadWidth = 0.05 / 2;
         var lineWidth = 0.015;
@@ -741,10 +741,10 @@ function game() {
         }
         var o = Map.objs;
         var objs = {};
-        objs[o.signSlip] = createObject(createUnicodeSign(160,160,45,"yellow","black", "\u26D0","black"));
-        objs[o.signWarn] = createObject(createUnicodeSign(160,160,45,"white", "black", "\u26A0", "red" ));
-        objs[o.tree] = createObject(drawUnicode("\uD83C\uDF33",160,190,"darkgreen"));
-        objs[o.checkpoint] = createObject(createSign(roadwidth*w*3*1.1,100,300, "red","red",function(ctx){
+        objs[o.signSlip.id] = createObject(createUnicodeSign(160,160,45,"yellow","black", "\u26D0","black"));
+        objs[o.signWarn.id] = createObject(createUnicodeSign(160,160,45,"white", "black", "\u26A0", "red" ));
+        objs[o.tree.id] = createObject(drawUnicode("\uD83C\uDF33",160,190,"darkgreen"));
+        objs[o.checkpoint.id] = createObject(createSign(roadwidth*w*3*1.1,100,300, "red","red",function(ctx){
                 var fs = 100 * 0.65;
                 ctx.font = "normal normal bold "+fs+"px Arial";
                 ctx.textAlign = "center";
@@ -752,7 +752,7 @@ function game() {
                 ctx.fillText("Checkpoint", roadwidth*w*3*1.1/2,100/2+fs/4);
             })
         );
-        objs[o.tunnelLight] = {i: createTunnelLight()};
+        objs[o.tunnelLight.id] = {i: createTunnelLight()};
 
         //hard coded objs
         var tunnel = { i: createTunnel() };
@@ -787,6 +787,8 @@ function game() {
             vx = car.direction * car.turnSpeed * (car.speed/car.maxSpeed);
         }
 
+        var oldx = car.x;
+        var oldz = car.zoff;
 
         //apply velocity
         var off = car.zoff;
@@ -802,6 +804,10 @@ function game() {
         var pull = sidewaysPull(car);
         if (!car.ai) {
             car.x = Math.max(Math.min(car.x + vx - pull, w),-w);
+            if (collide(car)) {
+                car.x = oldx;
+                car.zoff = oldz;
+            }
         }
 
         //TODO collide
@@ -840,6 +846,26 @@ function game() {
         return cars;
     }
 
+
+    function collides(z1,x1,w1, z2,x2,w2 ) {
+        return (z2 > z1 && z2 < z1+segmentLength/2)
+        && !(x1-w1/2 > x2+w2/2 || x1+w1/2 < x2-w2/2);
+    }
+
+    function collide(car) {
+        //check the car against all static objects and all other cars
+        var z1 = car.zoff;
+        var x1 = -1*car.x/((roadwidth/2)*tw);
+        var w1 = 0.25;
+         var collision = currentMap.sections[car.secIdx].objects.filter(function(i) {
+             return i[2].width && collides(z1,x1,w1, i[0],i[1],i[2].width )
+         });
+
+        for (var i=0; i < collision.length; i++)
+            console.log("bang ",collision[i]);
+
+        return collision.length > 0;
+    }
 
     function processInput() {
         player.direction = 0;
@@ -904,6 +930,8 @@ function game() {
 
     /* our location */
     var currentMap = BasicMap();
+    var roadwidth = 1.5 / 3;
+
     var renderer = Renderer();
 
 
@@ -929,6 +957,8 @@ function game() {
         e.preventDefault();
         return false;
     });
+
+
 
     //music
 /*
