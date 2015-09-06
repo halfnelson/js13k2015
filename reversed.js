@@ -776,7 +776,7 @@ function game() {
 
         //calc velocities
         if (car.accelerating) {
-            car.speed = Math.min(car.speed + car.acceleration, car.maxSpeed);
+            car.speed = Math.min(car.speed + car.acceleration * (1-(Math.pow(car.speed,1)/Math.pow(car.maxSpeed,1)))   , car.maxSpeed);
         } else if (car.braking) {
             car.speed = Math.max(car.speed - car.acceleration*2, -1*car.maxSpeed/3);
         } else {
@@ -805,12 +805,31 @@ function game() {
         var pull = sidewaysPull(car);
         if (!car.ai) {
             car.x = Math.max(Math.min(car.x + vx - pull, w),-w);
-            if (collide(car)) {
-                car.x = oldx;
-                car.zoff = oldz;
-                car.secIdx = oldsec;
-                car.speed = car.speed * 0.7
+        } else {
+            if (car.x == car.destinationX) {
+                car.destinationX = 0;
             }
+            if (car.destinationX != 0) {
+                car.x = car.x  + 0.05*((car.destinationX - car.x) > 0 ? 1 : -1);
+            }
+        }
+
+
+        if (collide(car)) {
+            car.x = oldx;
+            car.zoff = oldz;
+            car.secIdx = oldsec;
+            car.speed = car.speed * 0.7;
+            if (car.ai) {
+                //change lanes
+                if (car.destinationX == 0) {
+                    car.destinationX = Math.max(Math.min((Math.random() - 0.5) + car.x, 1),-1);
+
+                }
+            }
+
+
+
         }
 
         //TODO collide
