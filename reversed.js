@@ -789,6 +789,7 @@ function game() {
 
         var oldx = car.x;
         var oldz = car.zoff;
+        var oldsec = car.secIdx;
 
         //apply velocity
         var off = car.zoff;
@@ -807,6 +808,8 @@ function game() {
             if (collide(car)) {
                 car.x = oldx;
                 car.zoff = oldz;
+                car.secIdx = oldsec;
+                car.speed = car.speed * 0.7
             }
         }
 
@@ -855,16 +858,27 @@ function game() {
     function collide(car) {
         //check the car against all static objects and all other cars
         var z1 = car.zoff;
-        var x1 = -1*car.x/((roadwidth/2)*tw);
+        var x1 = car.ai ? car.x : (-1*car.x/((roadwidth/2)*tw));
         var w1 = 0.25;
          var collision = currentMap.sections[car.secIdx].objects.filter(function(i) {
              return i[2].width && collides(z1,x1,w1, i[0],i[1],i[2].width )
          });
 
-        for (var i=0; i < collision.length; i++)
-            console.log("bang ",collision[i]);
+        //against other cars
+        var collision2 = aiCars.filter(function(c) {
+            return (c != car)
+            && (c.secIdx == car.secIdx)
+            && (collides(z1,x1,w1, c.zoff, c.x, 0.25))
+        });
 
-        return collision.length > 0;
+        for (var i=0; i < collision.length; i++) {
+            console.log("bang ",collision[i]);
+        }
+
+        for (var i=0; i < collision2.length; i++) {
+            console.log("Carbang", collision2[i]);
+        }
+        return collision.length > 0 || collision2.length > 0;
     }
 
     function processInput() {
