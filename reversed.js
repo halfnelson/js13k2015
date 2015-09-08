@@ -54,7 +54,8 @@ function game() {
         signWarn : {id: 1, width: 0.5},
         tree: {id: 2, width: 0.15},
         tunnelLight: {id: 3},
-        checkpoint: {id: 4}
+        checkpoint: {id: 4},
+        reverser: {id:5, width: 0.20, item: true}
     };
 
     Map.cornerTypes = {
@@ -83,7 +84,7 @@ function game() {
         objectSet = objectSet.concat(objectRepeat(o.signWarn, 1.25 , 0,segmentLength,5 ));
         objectSet = objectSet.concat(objectRepeat(o.signSlip, -1.25,segmentLength*15,segmentLength,5 ));
         objectSet.push([segmentLength,0,o.checkpoint]);
-
+        objectSet.push([segmentLength/2,0,o.reverser]);
         var trees = objectRepeat(o.tree,2.0,0,segmentLength*2, 20);
 
         var tunnelLights = objectRepeat(o.tunnelLight,0,0,segmentLength,20);
@@ -350,6 +351,31 @@ function game() {
             return cv;
         }
 
+
+        function createItem(char, w, h, backgroundColor, fontColor) {
+            var cv = n$("canvas");
+            cv.width = w;
+            cv.height = h;
+            var c = cv.getContext("2d");
+
+            c.fillStyle = backgroundColor;
+            c.fillRect(0,0,w,h);
+
+
+            c.fillStyle = fontColor;
+            c.font = "normal normal bold "+h * 0.75 +"px Arial";
+            c.textAlign = "center";
+            c.textBaseline = "middle";
+            c.shadowColor = "rgba(40,40,40,0.8)";
+            c.shadowOffsetX = 4;
+            c.shadowOffsetY = 4;
+            c.fillText(char,w/2,h/2,w);
+            document.body.appendChild(cv);
+
+            return cv;
+
+
+        }
 
         function drawBackground() {
             //left offset
@@ -754,6 +780,11 @@ function game() {
         );
         objs[o.tunnelLight.id] = {i: createTunnelLight()};
 
+        objs[o.reverser.id] = createObject(createItem("\u21B7",roadwidth*tw*0.25,roadwidth*tw*0.25,"rgba(245,242,83,0.2)","white" ));
+
+
+
+
         //hard coded objs
         var tunnel = { i: createTunnel() };
         var tunnelEntry = { i: createTunnel(true) };
@@ -796,7 +827,7 @@ function game() {
         car.zoff = off + car.speed;
 
         //normalise section
-        var n = currentMap.normalizeSection(car.secIdx, car.zoff);
+              var n = currentMap.normalizeSection(car.secIdx, car.zoff);
         if (n.s == 0 && (car.secIdx == (currentMap.sections.length-1)))  car.lap++;
         car.secIdx = n.s; car.zoff = n.o;
 
@@ -830,14 +861,9 @@ function game() {
                     if (car.x <= -3/4 || roll >= 0.5) {
                         car.destinationX = car.x + 0.5;
                     }
-
-
-
                 }
             }
-
-            }
-
+          }
         }
 
         //TODO collide
@@ -887,12 +913,44 @@ function game() {
     }
 
 
-    function collides(z1,x1,w1, z2,x2,w2 ) {
-        return (z2 > z1 && z2 < z1+segmentLength/2)
-        && !(x1-w1/2 > x2+w2/2 || x1+w1/2 < x2-w2/2);
+    function collides(z1,x1,w1,z2,x2,w2 ) {
+        var nvz = 0;
+        var nvx = 0;
+        if (z2 > z1 && z2 < z1+segmentLength/2) {
+            nvz = -1*(z2-z1); //how var back to we need to move to stop collision
+        }
+
+        var a1 = x1-w1/2, a2 = x1+w1/ 2, b1= x2-w2/ 2, b2 = x2+w1/2;
+        if ((a1 < b2 && a2 > b1)) {
+            nvx = -1 * Math.min(Math.abs(b2 - a1), Math.abs(a2 - b1));
+        }
+
+        if ((nvz != 0) || (nvx != 0)) {
+            return null
+        } else {
+            //just resolve collision with shortest path
+           if (nvx > nvz) {
+               nvx = 0;
+           } else {
+               nvz = 0;
+           }
+            return {dvx:nvx, dvy:nvz}
+        }
+
+
+
+
+
+        /*if ((z2 > z1 && z2 < z1+segmentLength/2)
+        && !(x1-w1/2 > x2+w2/2 || x1+w1/2 < x2-w2/2)) {
+            //return new vx and vz values to stop "going through" other entity
+
+        }*/
     }
 
     function collide(car) {
+
+        //todo change to for loops and apply collides result to speed,zoff and x
         //check the car against all static objects and all other cars
         var z1 = car.zoff;
         var x1 = car.ai ? car.x : (-1*car.x/((roadwidth/2)*tw));
