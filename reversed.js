@@ -767,24 +767,24 @@ function game() {
         }
     }
 
-    function sidewaysPull(car) {
+    function sidewaysPull(car,delta) {
         var pulldir = currentMap.sections[car.secIdx].direction();
-        return pulldir * car.turnSpeed * (Math.pow(car.speed,5)) / (Math.pow(car.maxSpeed,5))*1.05;
+        return (pulldir * car.turnSpeed * (Math.pow(car.speed,5)) / (Math.pow(car.maxSpeed,5))*1.05) * delta;
     }
 
-    function moveCar(car) {
+    function moveCar(car,delta) {
 
         //calc velocities
         if (car.accelerating) {
-            car.speed = Math.min(car.speed + car.acceleration * (1-(Math.pow(car.speed,1)/Math.pow(car.maxSpeed,1)))   , car.maxSpeed);
+            car.speed = Math.min(car.speed + delta * car.acceleration * (1-(Math.pow(car.speed,1)/Math.pow(car.maxSpeed,1)))   , car.maxSpeed);
         } else if (car.braking) {
-            car.speed = Math.max(car.speed - car.acceleration*2, -1*car.maxSpeed/3);
+            car.speed = Math.max(car.speed - delta*car.acceleration*2, -1*car.maxSpeed/3);
         } else {
-            car.speed = car.speed > 0 ? Math.max(car.speed - car.acceleration/3,0): Math.min(car.speed + car.acceleration/3,0);
+            car.speed = car.speed > 0 ? Math.max(car.speed - delta*car.acceleration/3,0): Math.min(car.speed + delta*car.acceleration/3,0);
         }
         var vx = 0 ;
         if (car.direction != 0) {
-            vx = car.direction * car.turnSpeed * (car.speed/car.maxSpeed);
+            vx = car.direction * car.turnSpeed * (car.speed/car.maxSpeed) * delta;
         }
 
         var oldx = car.x;
@@ -802,19 +802,19 @@ function game() {
 
 
         //calculate cornering slippage
-        var pull = sidewaysPull(car);
+        var pull = sidewaysPull(car,delta);
         if (!car.ai) {
             car.x = Math.max(Math.min(car.x + vx - pull, w),-w);
         } else {
             if (car.x == car.destinationX) {
                 car.destinationX = 0;
             }
-            if (car.destinationX != 0) {
-                car.x = car.x  + 0.05*((car.destinationX - car.x) > 0 ? 1 : -1);
+            if (Math.abs(car.destinationX - car.x) >  0.05) {
+                car.x = car.x  + 0.05*delta*((car.destinationX - car.x) > 0 ? 1 : -1);
             }
         }
 
-
+        if (!car.ai ||  ((car.secIdx == player.secIdx))) {
         if (collide(car)) {
             car.x = oldx;
             car.zoff = oldz;
@@ -822,13 +822,21 @@ function game() {
             car.speed = car.speed * 0.7;
             if (car.ai) {
                 //change lanes
-                if (car.destinationX == 0) {
-                    car.destinationX = Math.max(Math.min((Math.random() - 0.5) + car.x, 1),-1);
+                if (!car.destinationX) {
+                    var roll = Math.random();
+                    if (car.x >= 3/4 || roll < 0.5) {
+                        car.destinationX = car.x - 0.5;
+                    }
+                    if (car.x <= -3/4 || roll >= 0.5) {
+                        car.destinationX = car.x + 0.5;
+                    }
+
+
 
                 }
             }
 
-
+            }
 
         }
 
@@ -836,24 +844,34 @@ function game() {
 
     }
 
-    function processAI() {
+    function processAI(delta) {
         for (var i = 0; i < aiCars.length; i++) {
-            moveCar(aiCars[i]);
+            moveCar(aiCars[i],delta);
         }
     }
 
-
+    var tcount = 0;
     function tick(ts) {
+        var start = performance.now();
+        if (!lastTick) lastTick = ts;
+        var delta = ts - lastTick;
+        var sf = delta/targetTimePerFrame;
+        lastTick = ts;
         //TODO use ts instead of the fact we were called to determing zoff etc
         processInput();
-        moveCar(player);
+        moveCar(player, sf);
 
-        processAI();
+        processAI(sf);
 
         //update background to make it look like we are turning
-        backgroundoffset = (backgroundoffset + sidewaysPull(player)/3) % tw;
+        backgroundoffset = (backgroundoffset + sidewaysPull(player,sf)/3) % tw;
 
         renderer.render();
+        var ms = performance.now() - start;
+        if (tcount++ > 120) {
+            console.log("frame time:",ms,"spare:", (targetTimePerFrame-ms), (targetTimePerFrame-ms)*100/targetTimePerFrame+"%");
+            tcount = 0;
+        }
         requestAnimationFrame(tick);
     }
 
@@ -890,13 +908,20 @@ function game() {
             && (collides(z1,x1,w1, c.zoff, c.x, 0.25))
         });
 
-        for (var i=0; i < collision.length; i++) {
-            console.log("bang ",collision[i]);
+        //against player car
+        if (car.ai && car.secIdx == player.secIdx) {
+            if (collides(z1,x1,w1, player.zoff, (-1*player.x/((roadwidth/2)*tw)), 0.25)) {
+                collision2.push(player)
+            }
         }
 
-        for (var i=0; i < collision2.length; i++) {
-            console.log("Carbang", collision2[i]);
-        }
+      //  for (var i=0; i < collision.length; i++) {
+          //  console.log("bang ",collision[i]);
+       // }
+
+       // for (var i=0; i < collision2.length; i++) {
+          //  console.log("Carbang", collision2[i]);
+        //}
         return collision.length > 0 || collision2.length > 0;
     }
 
@@ -954,7 +979,7 @@ function game() {
     var backgroundoffset = 0;
 
     var player = Car(0,0,0,"red",0.005,10,0.8);
-    var aiCars = createAICars(50);
+    var aiCars = createAICars(20);
 
 
 
@@ -975,7 +1000,8 @@ function game() {
     //document.getElementsByTagName("body")[0].appendChild(signSlip);
     //document.getElementsByTagName("body")[0].appendChild(signWarn);
     //document.getElementsByTagName("body")[0].appendChild(greenCar);
-
+    var lastTick;
+    var targetTimePerFrame = 1000/60 ; //60 frames per second as ms
     requestAnimationFrame(tick);
 
     document.addEventListener("keyup", function (e) {
