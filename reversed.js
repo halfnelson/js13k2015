@@ -8,6 +8,17 @@
 
 
 function game() {
+
+    function collectFirst(arr, func) {
+        var item=null;
+        for (var i = 0; i < arr.length; i++) {
+            item = func(arr[i],i);
+            if (item) return item;
+        }
+    }
+
+
+
     var MapSection = function(cornerType, segmentCount, objects, hillType, isTunnel) {
         this.cornerType = cornerType;
         this.segmentCount = segmentCount;
@@ -846,11 +857,21 @@ function game() {
         }
 
         if (!car.ai ||  ((car.secIdx == player.secIdx))) {
-        if (collide(car)) {
-            car.x = oldx;
-            car.zoff = oldz;
-            car.secIdx = oldsec;
-            car.speed = car.speed * 0.7;
+        var cr = collide(car);
+        if (cr) {
+
+
+
+            car.x = car.x + cr.dvx;
+            car.zoff = car.zoff + cr.dvy;
+
+            var newSec = currentMap.normalizeSection(car.secIdx, car.zoff);
+            car.secIdx = newSec.s;
+            car.zoff = newSec.o;
+
+            //car.zoff = oldz;
+            //car.secIdx = oldsec;
+            car.speed = car.speed + cr.dvy * 1.1;
             if (car.ai) {
                 //change lanes
                 if (!car.destinationX) {
@@ -917,7 +938,7 @@ function game() {
         var nvz = 0;
         var nvx = 0;
         if (z2 > z1 && z2 < z1+segmentLength/2) {
-            nvz = -1*(z2-z1); //how var back to we need to move to stop collision
+            nvz = -1*((z1+segmentLength/2)-z2); //how var back to we need to move to stop collision
         }
 
         var a1 = x1-w1/2, a2 = x1+w1/ 2, b1= x2-w2/ 2, b2 = x2+w1/2;
@@ -925,7 +946,7 @@ function game() {
             nvx = -1 * Math.min(Math.abs(b2 - a1), Math.abs(a2 - b1));
         }
 
-        if ((nvz != 0) || (nvx != 0)) {
+        if ((nvz >= 0) || (nvx >= 0)) {
             return null
         } else {
             //just resolve collision with shortest path
@@ -948,6 +969,9 @@ function game() {
         }*/
     }
 
+
+
+
     function collide(car) {
 
         //todo change to for loops and apply collides result to speed,zoff and x
@@ -955,23 +979,29 @@ function game() {
         var z1 = car.zoff;
         var x1 = car.ai ? car.x : (-1*car.x/((roadwidth/2)*tw));
         var w1 = 0.25;
-         var collision = currentMap.sections[car.secIdx].objects.filter(function(i) {
-             return i[2].width && collides(z1,x1,w1, i[0],i[1],i[2].width )
-         });
 
-        //against other cars
-        var collision2 = aiCars.filter(function(c) {
-            return (c != car)
-            && (c.secIdx == car.secIdx)
-            && (collides(z1,x1,w1, c.zoff, c.x, 0.25))
+        var thisSec = currentMap.sections[car.secIdx];
+        var collision = collectFirst(thisSec.objects,function(i) {
+            return i[2].width && collides(z1,x1,w1, i[0],i[1],i[2].width )
         });
 
-        //against player car
-        if (car.ai && car.secIdx == player.secIdx) {
-            if (collides(z1,x1,w1, player.zoff, (-1*player.x/((roadwidth/2)*tw)), 0.25)) {
-                collision2.push(player)
+        if (!collision) {
+            //against other cars
+            collision = collectFirst(aiCars,function(c) {
+                return (c != car)
+                && (c.secIdx == car.secIdx)
+                && (collides(z1,x1,w1, c.zoff, c.x, 0.25))
+            });
+        }
+
+        if (!collision) {
+            //against player car
+            if (car.ai && car.secIdx == player.secIdx) {
+                collision = collides(z1,x1,w1, player.zoff, (-1*player.x/((roadwidth/2)*tw)), 0.25);
             }
         }
+
+
 
       //  for (var i=0; i < collision.length; i++) {
           //  console.log("bang ",collision[i]);
@@ -980,7 +1010,7 @@ function game() {
        // for (var i=0; i < collision2.length; i++) {
           //  console.log("Carbang", collision2[i]);
         //}
-        return collision.length > 0 || collision2.length > 0;
+        return collision;
     }
 
     function processInput() {
@@ -1037,7 +1067,7 @@ function game() {
     var backgroundoffset = 0;
 
     var player = Car(0,0,0,"red",0.005,10,0.8);
-    var aiCars = createAICars(20);
+    var aiCars = createAICars(0);
 
 
 
