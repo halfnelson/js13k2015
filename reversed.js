@@ -99,6 +99,9 @@ function game() {
         var trees = objectRepeat(o.tree,2.0,0,segmentLength*2, 20);
 
         var tunnelLights = objectRepeat(o.tunnelLight,0,0,segmentLength,20);
+        tunnelLights = tunnelLights.concat(objectRepeat(o.tunnelLight,-1,0,segmentLength,20));
+        tunnelLights = tunnelLights.concat(objectRepeat(o.tunnelLight,1,0,segmentLength,20));
+
 
         var h = Map.hillTypes;
         var c = Map.cornerTypes;
@@ -204,7 +207,7 @@ function game() {
         }
 
         function createTunnelLight() {
-            var size = 20;
+            var size = 50;
             var tmpc = n$("canvas");
             tmpc.width = size;
             tmpc.height = 2*h/3;
@@ -1071,7 +1074,7 @@ function game() {
     var backgroundoffset = 0;
 
     var player = Car(0,0,0,"red",0.005,10,0.8);
-    var aiCars = createAICars(0);
+    var aiCars = createAICars(20);
 
 
 
