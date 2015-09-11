@@ -53,6 +53,10 @@ function game() {
                 if (secIdx >= this.sections.length) {
                     secIdx = 0;
                 }
+            } else if (off < 0) {
+                secIdx --;
+                if (secIdx < 0 ) secIdx = this.sections.length-1;
+                off =  this.sections[secIdx].len() + off;
             }  else {
                 return {s: secIdx, o: off};
             }
@@ -426,7 +430,6 @@ function game() {
             var lastdx = 0;
             var dx = 0;
             var lastSec = currentMap.sections[currentSec];
-            var changeover = false;
             var lastx = 0;
             var lastz = -1;
             var objects = [];
@@ -448,12 +451,13 @@ function game() {
                 //  dy = dy + ddy;
                 // rendery = rendery + dy;
                 z = (zmap[ys] || -1) + zoffset;
-                if (lastz < 0) lastz = z;
+                if (lastz < 0) lastz = z-(zmap[1]-zmap[0]);
                 if (z-zoffset > 80) break;
                 isTunnelEntry = false;
                 isTunnelExit = false;
                 //get our section for this y
-                var sec = currentMap.sections[currentMap.sectionFromOffset(currentSec, z)];
+                var n = currentMap.normalizeSection(currentSec,z);
+                var sec = currentMap.sections[n.s];
                 if (sec != lastSec) {
                     yoff = ys;
                     xoff = lastx;
@@ -462,8 +466,7 @@ function game() {
                     if (sec.isTunnel && !lastSec.isTunnel )  { //tunnel?
                         isTunnelEntry = true;
                     }
-                    changeover = ys;
-                    zoff = lastz;
+                    zoff = z-n.o;
                 }
 
                 //look ahead to see if this is last tunnel ys
@@ -513,33 +516,39 @@ function game() {
 
 
                 var scaleFactor = ((ys-horizon)- (roadwidthend/roadwidth)*ys)/horizon;
-                var objectInstances = sec.objects.filter(function(i) { return i[0] > (lastz - zoff) && i[0] <= (z - zoff)  });
-                for (i = 0; i < objectInstances.length; i++) {
+                var objectInstances = sec.objects;
+                for (i = 0; i <  objectInstances.length; i++) {
                     //o[0][0] = z, o[0][1]=x, o[0][2]=objecttype, o[1] = ys, o[2]=drawx, o[3]=z, o[4]=rendery
-                    objects.unshift(renderObj(
-                        objs[objectInstances[i][2].id],
-                        (-1*drawx+  objectInstances[i][1]*(tw/2)*scaleFactor*roadwidth),
-                        rendery,
-                        z,
-                        scaleFactor,
-                        ys
-                    ));
-
+                    if (objectInstances[i][0] > (lastz - zoff) && objectInstances[i][0] <= (z - zoff)) {
+                        objects.unshift(renderObj(
+                            objs[objectInstances[i][2].id],
+                            (-1 * drawx + objectInstances[i][1] * (tw / 2) * scaleFactor * roadwidth),
+                            rendery,
+                            z,
+                            scaleFactor,
+                            ys
+                        ));
+                    }
                    // objects.unshift([ [ois[i][0], ois[i][1], objs[ois[i][2]]] ,ys,drawx,z,rendery] );
                 }
 
                 //add cars
-                var visibleCars = aiCars.filter(function(i) { return currentMap.sections[i.secIdx] == sec })
-                    .filter(function(i) { return i.zoff > (lastz - zoff) && i.zoff <= (z - zoff)  });
-                for (i=0; i < visibleCars.length; i++) {
-                    objects.unshift(renderObj(
-                        imageForCar(visibleCars[i]),
-                        (-1*drawx+  visibleCars[i].x*(tw/2)*scaleFactor*roadwidth),
-                        rendery,
-                        z,
-                        scaleFactor,
-                        ys
-                    ))
+               // var visibleCars = aiCars;
+            //.filter(function(i) { return currentMap.sections[i.secIdx] == sec })
+             //       .filter(function(i) { return i.zoff > (lastz - zoff) && i.zoff <= (z - zoff)  });
+                for (i=0; i < aiCars.length; i++) {
+                    if (currentMap.sections[aiCars[i].secIdx] == sec) {
+                        if (aiCars[i].zoff > (lastz - zoff) && aiCars[i].zoff <= (z - zoff)) {
+                            objects.unshift(renderObj(
+                                imageForCar(aiCars[i]),
+                                (-1 * drawx + aiCars[i].x * (tw / 2) * scaleFactor * roadwidth),
+                                rendery,
+                                z,
+                                scaleFactor,
+                                ys
+                            ))
+                        }
+                    }
                 }
 
 
@@ -593,6 +602,7 @@ function game() {
                 if (o.z < lastyz) {
                     unclipped = true; //we have gone over the horizon.
                     c.restore();
+                    c.beginPath();
                 }
 
                 var ow = o.obj.i.width;
@@ -615,7 +625,7 @@ function game() {
 
                 //apply tunnel code
                 if (o.obj == tunnel || o.obj == tunnelEntry || o.obj == tunnelDarkness) {
-
+                    c.beginPath();
                     c.fillStyle = o.obj == tunnelEntry ? "#cccccc":  "black" ;
                     //sides
                     c.fillRect(0,(h- o.y)+1,(w/2+ o.x) +sw/2+1,sh-1);
@@ -650,10 +660,13 @@ function game() {
         }
 
         function drawHud() {
+            c.beginPath();
             c.font = "15px Arial";
             c.fillStyle = "white";
             c.fillText("Speed: " + Math.floor((player.speed*200/player.maxSpeed)), w / 20, h / 20);
             c.fillText("Lap: "+player.lap,  w / 20, 2*h/20);
+            c.fillText("zoff "+player.zoff,w/20, 3*h/20);
+            c.fillText("sec "+player.secIdx, w/20, 4*h/20);
         }
 
         function fromEmbeddedSVG(id, mutate) {
@@ -821,7 +834,7 @@ function game() {
 
         //calc velocities
         if (car.accelerating) {
-            car.speed = Math.min(car.speed + delta * car.acceleration * (1-(Math.pow(car.speed,1)/Math.pow(car.maxSpeed,1)))   , car.maxSpeed);
+            car.speed = Math.min(car.speed +  delta * car.acceleration * (1 - (Math.pow(Math.abs(car.speed), 1) / Math.pow(car.maxSpeed, 1))), car.maxSpeed);
         } else if (car.braking) {
             car.speed = Math.max(car.speed - delta*car.acceleration*2, -1*car.maxSpeed/3);
         } else {
@@ -957,11 +970,6 @@ function game() {
             return null
         } else {
             //just resolve collision with shortest path
-          /* if (nvx > nvz) {
-               nvx = 0;
-           } else {
-               nvz = 0;
-           }*/
             return {dvx:nvx, dvy:nvz}
         }
 
@@ -981,7 +989,6 @@ function game() {
 
     function collide(car) {
 
-        //todo change to for loops and apply collides result to speed,zoff and x
         //check the car against all static objects and all other cars
         var z1 = car.zoff;
         var x1 = car.ai ? car.x : (-1*car.x/((roadwidth/2)*tw));
@@ -1074,7 +1081,7 @@ function game() {
     var backgroundoffset = 0;
 
     var player = Car(0,0,0,"red",0.005,10,0.8);
-    var aiCars = createAICars(20);
+    var aiCars = createAICars(0);
 
 
 
