@@ -862,16 +862,20 @@ function game() {
 
 
 
-            car.x = car.x + cr.dvx;
-            car.zoff = car.zoff + cr.dvy;
 
+            car.x = car.x + (car.ai ? cr.dvx : (1*cr.dvx*((roadwidth/2)*tw)));
+            var oldzoff = car.zoff;
+            car.zoff = car.zoff + cr.dvy;
+            //TODO slow us down this frame
             var newSec = currentMap.normalizeSection(car.secIdx, car.zoff);
             car.secIdx = newSec.s;
             car.zoff = newSec.o;
 
             //car.zoff = oldz;
             //car.secIdx = oldsec;
+            var oldspeed = car.speed;
             car.speed = car.speed + cr.dvy * 1.1;
+            console.log("speeds (old/new)",oldspeed, car.speed,"zoff (old/new)",oldzoff, car.zoff);
             if (car.ai) {
                 //change lanes
                 if (!car.destinationX) {
@@ -916,7 +920,7 @@ function game() {
         renderer.render();
         var ms = performance.now() - start;
         if (tcount++ > 120) {
-            console.log("frame time:",ms,"spare:", (targetTimePerFrame-ms), (targetTimePerFrame-ms)*100/targetTimePerFrame+"%");
+          //  console.log("frame time:",ms,"spare:", (targetTimePerFrame-ms), (targetTimePerFrame-ms)*100/targetTimePerFrame+"%");
             tcount = 0;
         }
         requestAnimationFrame(tick);
@@ -941,20 +945,20 @@ function game() {
             nvz = -1*((z1+segmentLength/2)-z2); //how var back to we need to move to stop collision
         }
 
-        var a1 = x1-w1/2, a2 = x1+w1/ 2, b1= x2-w2/ 2, b2 = x2+w1/2;
+        var a1 = x1-w1/2, a2 = x1+w1/ 2, b1= x2-w2/ 2, b2 = x2+w2/2;
         if ((a1 < b2 && a2 > b1)) {
             nvx = -1 * Math.min(Math.abs(b2 - a1), Math.abs(a2 - b1));
         }
 
-        if ((nvz >= 0) || (nvx >= 0)) {
+        if (!((nvz < 0) && (nvx < 0))  ) {
             return null
         } else {
             //just resolve collision with shortest path
-           if (nvx > nvz) {
+          /* if (nvx > nvz) {
                nvx = 0;
            } else {
                nvz = 0;
-           }
+           }*/
             return {dvx:nvx, dvy:nvz}
         }
 
