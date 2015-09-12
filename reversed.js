@@ -457,7 +457,7 @@ function game() {
             var ddy = 0.005;  //up = dy = 1, ddy = 0.005
             var dy = 1;
 
-            var currentx = player.x;// * -1 * ((roadwidth/2)*tw);
+            var playerScreenx = player.x * -1 * ((roadwidth/2)*tw);
 
             var lasty = 0;
             var rendery = 0;
@@ -510,7 +510,7 @@ function game() {
                 dx = sec.cornerType;
                 //ddx = ddx + dx;
 
-                var xoffadj = ((1 - (ys / horizon)) *  currentx);//player.x);
+                var xoffadj = ((1 - (ys / horizon)) *  playerScreenx);//player.x);
                 x=x + dx * (lastz-z) - lastdx;  //* (lastz-z) ;//  +ddx;//+xoffadj;
 
                 var drawx = x +xoffadj;
@@ -802,6 +802,7 @@ function game() {
 
         /* setup our two road textures to produce the effect of moving forward */
        // var roadwidth = 1.5 / 3;
+        var roadwidth = 1.5 / 3;
         var roadwidthend = 0.04 / 3;
         var sideRoadWidth = 0.05 / 2;
         var lineWidth = 0.015;
@@ -878,9 +879,11 @@ function game() {
     }
 
 
-    function destinationBlocked(car) {
-        return car.destinationX < -0.75 || car.destinationX > 0.75 || collideEx(car.secIdx,car.zoff, car.destinationX,car);
+    function destinationBlocked(car, lookahead, x) {
+        var la = currentMap.normalizeSection(car.secIdx,car.zoff + lookahead);
+        var blocker = collideEx(la.s,la.o, x,car);
 
+        return (blocker && (blocker.obj.isCar || blocker.obj[2].bump)) ? blocker : false;
     }
 
     function moveCar(car,delta) {
@@ -925,7 +928,7 @@ function game() {
                     return;
                 }
 
-                car.speed = (car.zoff - car.lastCheckpointOffset)/currentMap.sections[car.secIdx].len() * car.maxSpeed * 5 * -1 - car.maxSpeed/5;
+                car.speed = (car.zoff - car.lastCheckpointOffset)/currentMap.sections[car.secIdx].len() * car.maxSpeed * 2 * -1 - car.maxSpeed/20;
             }
         }
         //normalise section
@@ -946,23 +949,24 @@ function game() {
                     car.destinationX = undefined;
                 }
 
-                var turnspeedai = (car.turnSpeed / (roadwidth * tw / 2)) * delta;
+                var turnspeedai =car.turnSpeed;// (car.turnSpeed / (roadwidth * tw / 2)) * delta;
 
                     //do we need to change lanes?
-                    var lookahead = currentMap.normalizeSection(car.secIdx,car.zoff + segmentLength);
-                    var roadhog = collideEx(lookahead.s,lookahead.o,car.x,car);
-                    if (roadhog && (roadhog.obj.isCar || roadhog.obj[2].bump)) {
+                    //var lookahead = currentMap.normalizeSection(car.secIdx,car.zoff + segmentLength);
+                    var lookahead = segmentLength/2 + segmentLength * (car.speed/car.maxSpeed);
+                    var roadhog = destinationBlocked(car, lookahead, car.x);// collideEx(lookahead.s,lookahead.o,car.x,car);
+                    if (roadhog) {
 
                         var objwidth = (roadhog.obj.isCar ? 0.40 : roadhog.obj[2].width);
                         //left or right?, try the short way
                         car.destinationX = car.x + roadhog.dvx;
 
-                        //is there someone at our destination spot already
-                        if (destinationBlocked(car)) {
+                        //is there someone at our destination spot already or is it off road?
+                        if (car.destinationX < -0.75 || car.destinationX > 0.75 || destinationBlocked(car, lookahead/2, car.destinationX) ) {
 
                             //go the other way
-                            car.destinationX = car.x + (roadhog.dvx + (roadhog > 0 ? -objwidth: objwidth) );
-                            if (destinationBlocked(car)) {
+                            car.destinationX = car.x + (roadhog.dvx > 0 ?-objwidth:objwidth) + (roadhog.dvx + (roadhog > 0 ? -objwidth: objwidth) );
+                            if (car.destinationX < -0.75 || car.destinationX > 0.75 || destinationBlocked(car, lookahead/2, car.destinationX)) {
                                 car.destinationX = undefined; //stay put and hit the brakes
                                 car.accelerating = false;
                                 car.braking = true;
@@ -981,9 +985,9 @@ function game() {
                     var turnwanted = Math.min(Math.abs(car.destinationX - car.x), turnspeedai);
 
                     if (car.destinationX < car.x) {
-                        car.x = car.x - turnwanted;
+                        car.x = car.x - turnwanted * delta;
                     } else {
-                        car.x = car.x + turnwanted;
+                        car.x = car.x + turnwanted * delta;
                     }
 
 
@@ -1027,7 +1031,7 @@ function game() {
             else //sign or something boring
             {
 
-                car.x = car.x + (car.ai ? cr.dvx : (-1 * cr.dvx * ((roadwidth / 2) * tw))) * 1.1;
+                car.x = car.x + cr.dvx * 1.1;
                 var oldzoff = car.zoff;
                 car.zoff = car.zoff + cr.dvy;
                 //TODO slow us down this frame
@@ -1094,7 +1098,7 @@ function game() {
     function createAICars(num) {
         var cars=  [];
         for (var i = 0; i < num; i++) {
-            var c = Car(-3/4+ ((i % 4 > 1) ? 1/2 : 0) + ((i%2)), 0,Math.floor(i/2)*(segmentLength/2),"grey", Math.random()*(0.005-0.0035)+ 0.0035,10,Math.random() * (0.75 - 0.6) +0.6);
+            var c = Car(-3/4+ ((i % 4 > 1) ? 1/2 : 0) + ((i%2)), 0,Math.floor(i/2)*(segmentLength/2),"grey", Math.random()*(0.005-0.0035)+ 0.0035,0.0208,Math.random() * (0.75 - 0.6) +0.6);
             c.ai = true;
             c.accelerating = true;
             cars.push(c);
@@ -1144,7 +1148,7 @@ function game() {
         var carWidth = 0.4;
         //check the car against all static objects and all other cars
         var z1 = zoff;
-        var x1 = self.ai ? x : (-1*x/((roadwidth/2)*tw));
+        var x1 = x; // self.ai ? x : (-1*x/((roadwidth/2)*tw));
         var w1 = carWidth;// 0.25;
         var collision;
 
@@ -1164,7 +1168,7 @@ function game() {
 
             //against player car
             if (self != player && secIdx == player.secIdx && !player.dead) {
-                collision = collides(z1,x1,w1, player.zoff, (-1*player.x/((roadwidth/2)*tw)), carWidth, player);
+                collision = collides(z1,x1,w1, player.zoff, player.x, carWidth, player);
             }
 
         //car collisions are most important
@@ -1231,12 +1235,12 @@ function game() {
     var respawnTime = 2000;
 
     var currentMap = BasicMap();
-    var roadwidth = 1.5 / 3;
+   //var roadwidth = 1.5 / 3;
 
     var numAIPlayers = 40;
     var aiCars = createAICars(numAIPlayers);
     var start = currentMap.normalizeSection(0,-1*segmentLength);
-    var player = Car(-0.75, start.s,start.o,"red",0.005,10,0.8);
+    var player = Car(-0.75, start.s,start.o,"red",0.005,0.0208,0.8);
     //autopilot
     player.ai = true;
     player.accelerating = true;
