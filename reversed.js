@@ -17,8 +17,6 @@ function game() {
         }
     }
 
-
-
     var MapSection = function(cornerType, segmentCount, objects, hillType, isTunnel) {
         this.cornerType = cornerType;
         this.segmentCount = segmentCount;
@@ -65,12 +63,14 @@ function game() {
 
 
     Map.objs = {
-        signSlip : {id: 0, width: 0.5},
-        signWarn : {id: 1, width: 0.5},
-        tree: {id: 2, width: 0.15},
+        signSlip : {id: 0, width: 0.5, bump: true},
+        signWarn : {id: 1, width: 0.5, bump: true},
+        tree: {id: 2, width: 0.15, bump: true},
         tunnelLight: {id: 3},
-        checkpoint: {id: 4},
-        reverser: {id:5, width: 0.20, item: true}
+        checkpoint: {id: 4, width: 2},
+        reverser: {id:5, width: 0.20, item: true},
+        disabledItem: {id:6},
+        boost: { id: 7, width: 0.125, item: true }
     };
 
     Map.cornerTypes = {
@@ -99,22 +99,24 @@ function game() {
         objectSet = objectSet.concat(objectRepeat(o.signWarn, 1.25 , 0,segmentLength,5 ));
         objectSet = objectSet.concat(objectRepeat(o.signSlip, -1.25,segmentLength*15,segmentLength,5 ));
         objectSet.push([segmentLength,0,o.checkpoint]);
-        objectSet.push([segmentLength/2,0,o.reverser]);
+       // objectSet.push([segmentLength/2,0,o.reverser]);
         var trees = objectRepeat(o.tree,2.0,0,segmentLength*2, 20);
 
         var tunnelLights = objectRepeat(o.tunnelLight,0,0,segmentLength,20);
         tunnelLights = tunnelLights.concat(objectRepeat(o.tunnelLight,-1,0,segmentLength,20));
         tunnelLights = tunnelLights.concat(objectRepeat(o.tunnelLight,1,0,segmentLength,20));
 
+        var boosts =objectRepeat(o.boost,-0.25,5*segmentLength,segmentLength,5);
+        var startboosts = objectRepeat(o.boost, 0.75, 2*segmentLength, segmentLength,10);
 
         var h = Map.hillTypes;
         var c = Map.cornerTypes;
         return new Map([
-            new MapSection(c.straight,20, objectSet, h.flat ,false),
-            new MapSection(c.left,20, trees, h.down,false),
-            new MapSection(c.straight,20, tunnelLights, h.flat,true),
-            new MapSection(c.left,50,trees, h.flat,false),
-            new MapSection(c.straight,20, objectSet, h.up,false),
+            new MapSection(c.straight,20, objectSet.concat(startboosts), h.flat ,false),
+            new MapSection(c.left,20, trees.concat(boosts), h.down, false),
+            new MapSection(c.straight,20, tunnelLights, h.flat, true),
+            new MapSection(c.left,20,trees, h.flat,false),
+            new MapSection(c.straight,20, objectSet.concat(boosts), h.up, false),
             new MapSection(c.right, 20, objectSet, h.down,false)
         ]);
     }
@@ -133,7 +135,10 @@ function game() {
             lap: 0,
             reversed: false,
             accelerating: false,
-            braking: false
+            braking: false,
+            isCar: true,
+            lastCheckpointOffset: 0,
+            lastCheckpointSection: 0
         }
     }
 
@@ -224,15 +229,15 @@ function game() {
 
         }
 
-        function createSign(w, h, gh, color, borderColor, contentCallback ) {
+        function createSign(w, h, gh, color, borderColor, pollMargin, contentCallback ) {
             var tmpc = n$("canvas");
             tmpc.width = w;
             tmpc.height = h+gh;
             var ctx = tmpc.getContext("2d");
             //poles
             ctx.fillStyle = "#DDD";
-            ctx.fillRect(w/4-2,0,4,h+gh);
-            ctx.fillRect(3*w/4-2,0,4,h+gh);
+            ctx.fillRect(pollMargin*w-2,0,4,h+gh);
+            ctx.fillRect((1-pollMargin)*w-2,0,4,h+gh);
             //sign
             ctx.fillStyle = borderColor;
             ctx.fillRect(0,0,w,h);
@@ -243,12 +248,14 @@ function game() {
             return tmpc;
         }
 
-        function createUnicodeSign(w, h, gh, color, borderColor, chr, chrColor) {
-            return createSign(w,h,gh,color,borderColor, function(ctx) {
-                var fs = h * 0.65;
+        function createUnicodeSign(w, h, gh, color, borderColor, chr, chrColor, pollMargin) {
+            return createSign(w,h,gh,color,borderColor,pollMargin, function(ctx) {
+                var fs = h * 0.85;
                 ctx.font = fs+"px Arial";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
                 ctx.fillStyle = chrColor;
-                ctx.fillText(chr, w/2- fs/2,h/2+fs/2 - fs/8)
+                ctx.fillText(chr, w/2,h/2,w);
             })
         }
 
@@ -324,6 +331,17 @@ function game() {
             return cv;
         }
 
+        function makeTransparent(image, opacity) {
+            var tmpc = n$("canvas");
+            tmpc.width = image.naturalWidth || image.width;
+            tmpc.height = image.naturalHeight || image.height;
+
+            var tmpctx = tmpc.getContext("2d");
+            tmpctx.globalAlpha = opacity;
+            tmpctx.drawImage(image,0,0);
+            return tmpc;
+
+        }
 
         function flipImage(image) {
             var tmpc = n$("canvas");
@@ -336,10 +354,6 @@ function game() {
             tmpctx.scale(-1, 1);
             tmpctx.drawImage(image, 0.5, 0);
 
-/*            var imgurl = tmpc.toDataURL();
-            var img = n$("img");
-            img.src = imgurl;
-            return img;*/
             return tmpc;
         }
 
@@ -357,15 +371,19 @@ function game() {
 
 
 
-        function drawUnicode(char, fw, fh, color) {
+        function drawUnicode(char, fw, fh, color, strokeColor, lineWidth) {
             var cv = n$("canvas");
             cv.width = fw;
             cv.height = fh;
             var c = cv.getContext("2d");
-
             c.fillStyle = color;
-            c.font = h * 0.45 +"px Arial";
-            c.fillText(char,0,h*0.45,fw);
+            c.strokeStyle = strokeColor;
+            c.textAlign = "center";
+            c.font = fh * 0.85 +"px Arial";
+            c.lineWidth = lineWidth;
+            c.fillText(char,fw/2,fh,fw);
+
+            c.strokeText(char,fw/2,fh,fw);
             return cv;
         }
 
@@ -377,9 +395,10 @@ function game() {
             var c = cv.getContext("2d");
 
             c.fillStyle = backgroundColor;
-            c.fillRect(0,0,w,h);
-
-
+           // c.fillRect(0,0,w,h);
+            c.arc(w/2,h/2,w/2,0,Math.PI*2);
+            c.fill();
+            c.beginPath();
             c.fillStyle = fontColor;
             c.font = "normal normal bold "+h * 0.75 +"px Arial";
             c.textAlign = "center";
@@ -438,6 +457,8 @@ function game() {
             var ddy = 0.005;  //up = dy = 1, ddy = 0.005
             var dy = 1;
 
+            var currentx = player.x;// * -1 * ((roadwidth/2)*tw);
+
             var lasty = 0;
             var rendery = 0;
             var lastyz = 0;
@@ -489,7 +510,7 @@ function game() {
                 dx = sec.cornerType;
                 //ddx = ddx + dx;
 
-                var xoffadj = ((1 - (ys / horizon)) * player.x);
+                var xoffadj = ((1 - (ys / horizon)) *  currentx);//player.x);
                 x=x + dx * (lastz-z) - lastdx;  //* (lastz-z) ;//  +ddx;//+xoffadj;
 
                 var drawx = x +xoffadj;
@@ -585,13 +606,6 @@ function game() {
                     objects.unshift(
                         renderObj(tunnelDarkness,0,lasty,z,((-1)- (roadwidthend/roadwidth)*(horizon-1))/horizon)
                     );
-                      /*  [
-                        [0, 0, tunnelDarkness],
-                            horizon - 1,
-                        0,
-                        z,
-                        lasty
-                    ]);*/
                 }
             }
 
@@ -599,11 +613,15 @@ function game() {
             for (var i=0; i < objects.length; i++) {
                 var o = objects[i];
 
+                if (!o.obj || !o.obj.i) continue;
+
+
                 if (o.z < lastyz) {
                     unclipped = true; //we have gone over the horizon.
                     c.restore();
                     c.beginPath();
                 }
+
 
                 var ow = o.obj.i.width;
                 var oh = o.obj.i.height;
@@ -651,12 +669,20 @@ function game() {
             var carimg = car.reversed ? carfront[car.color] : carstraight[car.color];
             if (car.direction == -1) carimg = carturnleft[car.color];
             if (car.direction == 1) carimg = carturnright[car.color];
+            if (car.dead) carimg = cardead[car.color];
             return carimg;
         }
 
         function drawCar() {
             var carimg = imageForCar(player);
-            c.drawImage(carimg.i, Math.floor(w / 2 - carimg.i.width / 2) + 0.5, h - carimg.i.height - 15);
+           /* if (player.dead) {
+                c.save();
+                c.globalAlpha = 0.2;
+                c.drawImage(carimg.i, Math.floor(w / 2 - carimg.i.width / 2) + 0.5, h - carimg.i.height - 15);
+                c.restore();
+            } else {*/
+                c.drawImage(carimg.i, Math.floor(w / 2 - carimg.i.width / 2) + 0.5, h - carimg.i.height - 15);
+            //}
         }
 
         function drawHud() {
@@ -753,7 +779,7 @@ function game() {
 
 
 
-        var carstraight = {}, carturnright = {}, carturnleft = {}, carfront = {};
+        var carstraight = {}, carturnright = {}, carturnleft = {}, carfront = {}, cardead = {};
         [
             ["red",makeRed],
             ["green", makeGreen],
@@ -765,6 +791,7 @@ function game() {
                 carturnright[r[0]]= createObject(fromEmbeddedSVG("crt",r[1]));
                 carfront[r[0]]=createObject(fromEmbeddedSVG("crf",r[1]));
                 carturnleft[r[0]]=createObject(flipImage(carturnright[r[0]].i));
+                cardead[r[0]] = createObject(makeTransparent(carstraight[r[0]].i, 0.2));
             });
 
         var horizon = h / 2;
@@ -782,11 +809,25 @@ function game() {
 
         var fog = createFog("rgba(255,255,255,0)","rgba(255,255,255,0.25)", 0.25);
 
+        //desert fog
+        //var fog = createFog("rgba(237,204,169,0)","rgba(237,204,169,0.45)", 0.15);
+
+
         var road1 = drawRoadTexture("#224400", "#314430", "white", "white",fog);
         var road2 = drawRoadTexture("#325611", "#435443", "#314430", "#435443",fog);
+
+        //desert roads //todo extract to theme
+        //var road1 = drawRoadTexture("#E4BE9F", "#D3A281", "#9C664C", "#D3A281",fog);
+        //var road2 = drawRoadTexture("#C89B7E", "#D3A281", "#9C664C", "#D3A281",fog);
+
         var tunnelRoad1 = drawRoadTexture("black", "#314430", "white", "white");
         var tunnelRoad2 = drawRoadTexture("black", "#435443", "#314430", "#435443");
+
+
         var background = createBackground("blue","#325611", fog);
+
+        // desert background
+        //var background = createBackground("lightblue","#E4BE9F", fog);
 
         //map object representations
         function createObject(img) {
@@ -794,10 +835,15 @@ function game() {
         }
         var o = Map.objs;
         var objs = {};
-        objs[o.signSlip.id] = createObject(createUnicodeSign(160,160,45,"yellow","black", "\u26D0","black"));
-        objs[o.signWarn.id] = createObject(createUnicodeSign(160,160,45,"white", "black", "\u26A0", "red" ));
-        objs[o.tree.id] = createObject(drawUnicode("\uD83C\uDF33",160,190,"darkgreen"));
-        objs[o.checkpoint.id] = createObject(createSign(roadwidth*w*3*1.1,100,300, "red","red",function(ctx){
+        objs[o.signSlip.id] = createObject(createUnicodeSign(160,160,45,"yellow","black", "\u26D0","black", 0.25));
+        objs[o.signWarn.id] = createObject(createUnicodeSign(160,160,45,"white", "black", "\u26A0", "red", 0.25));
+
+        objs[o.tree.id] = createObject(drawUnicode("\uD83C\uDF33",360,390,"darkgreen","#0E260E", 8));
+
+        //desert cactus
+        //objs[o.tree.id] = createObject(drawUnicode("\uD83C\uDF35",240,160,"darkgreen"));
+
+        objs[o.checkpoint.id] = createObject(createSign(roadwidth*w*3*1.1,100,300, "red","red",0.05,function(ctx){
                 var fs = 100 * 0.65;
                 ctx.font = "normal normal bold "+fs+"px Arial";
                 ctx.textAlign = "center";
@@ -809,6 +855,7 @@ function game() {
 
         objs[o.reverser.id] = createObject(createItem("\u21B7",roadwidth*tw*0.25,roadwidth*tw*0.25,"rgba(245,242,83,0.2)","white" ));
 
+        objs[o.boost.id] = createObject(createItem("\uD83D\uDE80", roadwidth*tw* o.boost.width,roadwidth*tw* o.boost.width, "rgba(255,255,255,0)","white"));
 
 
 
@@ -827,87 +874,189 @@ function game() {
 
     function sidewaysPull(car,delta) {
         var pulldir = currentMap.sections[car.secIdx].direction();
-        return (pulldir * car.turnSpeed * (Math.pow(car.speed,5)) / (Math.pow(car.maxSpeed,5))*1.05) * delta;
+        return (pulldir * car.turnSpeed * (( Math.pow(Math.min(car.speed,car.maxSpeed),3)) / (Math.pow(car.maxSpeed,3)))) * delta;
+    }
+
+
+    function destinationBlocked(car) {
+        return car.destinationX < -0.75 || car.destinationX > 0.75 || collideEx(car.secIdx,car.zoff, car.destinationX,car);
+
     }
 
     function moveCar(car,delta) {
 
-        //calc velocities
-        if (car.accelerating) {
-            car.speed = Math.min(car.speed +  delta * car.acceleration * (1 - (Math.pow(Math.abs(car.speed), 1) / Math.pow(car.maxSpeed, 1))), car.maxSpeed);
-        } else if (car.braking) {
-            car.speed = Math.max(car.speed - delta*car.acceleration*2, -1*car.maxSpeed/3);
-        } else {
-            car.speed = car.speed > 0 ? Math.max(car.speed - delta*car.acceleration/3,0): Math.min(car.speed + delta*car.acceleration/3,0);
+        if (!car.dead) {
+            //calc velocities
+            if (car.accelerating) {
+                car.speed = // car.speed +  delta * car.acceleration * (1 - (Math.pow(Math.abs(car.speed), 1) / Math.pow(car.maxSpeed, 1))), car.maxSpeed);
+                    car.speed + delta * car.acceleration * (1 - (Math.pow(Math.abs(car.speed), 1) / Math.pow(car.maxSpeed, 1)));//, car.maxSpeed);
+            } else if (car.braking) {
+                car.speed = Math.max(car.speed - delta * car.acceleration * (1 + Math.pow(car.speed, 2) / Math.pow(car.maxSpeed, 2)), -1 * car.maxSpeed / 3);
+            } else {
+                car.speed = car.speed > 0 ? Math.max(car.speed - delta * car.acceleration / 3, 0) : Math.min(car.speed + delta * car.acceleration / 3, 0);
+            }
+            var vx = 0;
+            if (car.direction != 0) {
+                vx = (car.reversed ? -1 : 1) * car.direction * car.turnSpeed * ((Math.min(car.speed, car.maxSpeed) / car.maxSpeed)) * delta;
+            }
         }
-        var vx = 0 ;
-        if (car.direction != 0) {
-            vx = car.direction * car.turnSpeed * (car.speed/car.maxSpeed) * delta;
-        }
-
-        var oldx = car.x;
-        var oldz = car.zoff;
-        var oldsec = car.secIdx;
+     //   var oldx = car.x;
+       // var oldz = car.zoff;
+       // var oldsec = car.secIdx;
 
         //apply velocity
         var off = car.zoff;
-        car.zoff = off + car.speed;
+        car.zoff = off + car.speed * delta;
 
+        if (car.dead) {
+            //car.zoff = off + car.speed * delta;
+            if (car.secIdx == car.lastCheckpointSection) {
+                if (car.zoff <= car.lastCheckpointOffset) {
+                    car.zoff = car.lastCheckpointOffset;
+                    car.speed = 0;
+                    //quick collision check so we don't get telefragged
+                    var c = collide(car);
+                    if (c) {
+                        return; //wait for the other guy
+                        //car.x = car.x + (car.ai ? c.dvx : (-1*c.dvx*((roadwidth/2)*tw)))*1.1
+                    }
+                    car.dead = false;
+
+                    return;
+                }
+
+                car.speed = (car.zoff - car.lastCheckpointOffset)/currentMap.sections[car.secIdx].len() * car.maxSpeed * 5 * -1 - car.maxSpeed/5;
+            }
+        }
         //normalise section
-              var n = currentMap.normalizeSection(car.secIdx, car.zoff);
+        var n = currentMap.normalizeSection(car.secIdx, car.zoff);
         if (n.s == 0 && (car.secIdx == (currentMap.sections.length-1)))  car.lap++;
         car.secIdx = n.s; car.zoff = n.o;
 
 
+
+
         //calculate cornering slippage
         var pull = sidewaysPull(car,delta);
-        if (!car.ai) {
-            car.x = Math.max(Math.min(car.x + vx - pull, w),-w);
-        } else {
-            if (car.x == car.destinationX) {
-                car.destinationX = 0;
-            }
-            if (Math.abs(car.destinationX - car.x) >  0.05) {
-                car.x = car.x  + 0.05*delta*((car.destinationX - car.x) > 0 ? 1 : -1);
+        if (!car.dead) {
+            if (!car.ai) {
+                car.x = Math.max(Math.min(car.x + vx - pull, w), -w);
+            } else {
+                if (car.x == car.destinationX) {
+                    car.destinationX = undefined;
+                }
+
+                var turnspeedai = (car.turnSpeed / (roadwidth * tw / 2)) * delta;
+
+                    //do we need to change lanes?
+                    var lookahead = currentMap.normalizeSection(car.secIdx,car.zoff + segmentLength);
+                    var roadhog = collideEx(lookahead.s,lookahead.o,car.x,car);
+                    if (roadhog && (roadhog.obj.isCar || roadhog.obj[2].bump)) {
+
+                        var objwidth = (roadhog.obj.isCar ? 0.40 : roadhog.obj[2].width);
+                        //left or right?, try the short way
+                        car.destinationX = car.x + roadhog.dvx;
+
+                        //is there someone at our destination spot already
+                        if (destinationBlocked(car)) {
+
+                            //go the other way
+                            car.destinationX = car.x + (roadhog.dvx + (roadhog > 0 ? -objwidth: objwidth) );
+                            if (destinationBlocked(car)) {
+                                car.destinationX = undefined; //stay put and hit the brakes
+                                car.accelerating = false;
+                                car.braking = true;
+                            }
+                        }
+
+                    } else {
+                        //clear sailing ahead, stop breaking if we were doing so
+                        car.braking = false;
+                        car.accelerating = true;
+                    }
+
+
+                if (car.destinationX !== undefined) {
+
+                    var turnwanted = Math.min(Math.abs(car.destinationX - car.x), turnspeedai);
+
+                    if (car.destinationX < car.x) {
+                        car.x = car.x - turnwanted;
+                    } else {
+                        car.x = car.x + turnwanted;
+                    }
+
+
+                }
             }
         }
 
-        if (!car.ai ||  ((car.secIdx == player.secIdx))) {
+        if (!car.dead && car.speed != 0) { // && (!car.ai ||  ((car.secIdx == player.secIdx)))) {
         var cr = collide(car);
         if (cr) {
 
+            var obj = cr.obj;
+            if (obj.isCar) {
+                //bad news, back to last checkpoint
+                car.dead = true;
+                car.speed = -1 * car.maxSpeed * 5;
+                car.x = Math.random() * 1.5 - 0.75;
+                car.destinationX = undefined;
 
-
-
-            car.x = car.x + (car.ai ? cr.dvx : (1*cr.dvx*((roadwidth/2)*tw)));
-            var oldzoff = car.zoff;
-            car.zoff = car.zoff + cr.dvy;
-            //TODO slow us down this frame
-            var newSec = currentMap.normalizeSection(car.secIdx, car.zoff);
-            car.secIdx = newSec.s;
-            car.zoff = newSec.o;
-
-            //car.zoff = oldz;
-            //car.secIdx = oldsec;
-            var oldspeed = car.speed;
-            car.speed = car.speed + cr.dvy * 1.1;
-            console.log("speeds (old/new)",oldspeed, car.speed,"zoff (old/new)",oldzoff, car.zoff);
-            if (car.ai) {
-                //change lanes
-                if (!car.destinationX) {
-                    var roll = Math.random();
-                    if (car.x >= 3/4 || roll < 0.5) {
-                        car.destinationX = car.x - 0.5;
-                    }
-                    if (car.x <= -3/4 || roll >= 0.5) {
-                        car.destinationX = car.x + 0.5;
-                    }
-                }
             }
-          }
-        }
+            else if (obj[2].id == Map.objs.reverser.id) {
+                car.reversed = !car.reversed;
+                obj[2] = Map.objs.disabledItem;
+                setTimeout(function () {
+                    obj[2] = Map.objs.reverser;
+                }, respawnTime);
 
-        //TODO collide
+            }
+            else if (obj[2].id == Map.objs.boost.id) {
+                car.speed = car.speed * 1.1;
+                obj[2] = Map.objs.disabledItem;
+                setTimeout(function () {
+                    obj[2] = Map.objs.boost;
+                }, respawnTime);
+            }
+            else if (obj[2].id == Map.objs.checkpoint.id) {
+                var cp = currentMap.normalizeSection(car.secIdx, obj[0] - segmentLength);
+                car.lastCheckpointSection = cp.s;
+                car.lastCheckpointOffset = cp.o;
+            }
+            else //sign or something boring
+            {
+
+                car.x = car.x + (car.ai ? cr.dvx : (-1 * cr.dvx * ((roadwidth / 2) * tw))) * 1.1;
+                var oldzoff = car.zoff;
+                car.zoff = car.zoff + cr.dvy;
+                //TODO slow us down this frame
+                var newSec = currentMap.normalizeSection(car.secIdx, car.zoff);
+                car.secIdx = newSec.s;
+                car.zoff = newSec.o;
+
+                //car.zoff = oldz;
+                //car.secIdx = oldsec;
+                var oldspeed = car.speed;
+                car.speed = car.speed * 0.9;
+                // console.log("speeds (old/new)",oldspeed, car.speed,"zoff (old/new)",oldzoff, car.zoff);
+                /*if (car.ai) {
+                    //change lanes
+                    if (!car.destinationX) {
+
+                        if (car.x >= 3 / 4 || cr.dvx < 0) {
+                            car.destinationX = car.x - 0.5;
+                        }
+                        if (car.x <= -3 / 4 || cr.dvx > 0) {
+                            car.destinationX = car.x + 0.5;
+                        }
+                    }
+                }*/
+            }
+        }
+      }
+
+
 
     }
 
@@ -945,7 +1094,7 @@ function game() {
     function createAICars(num) {
         var cars=  [];
         for (var i = 0; i < num; i++) {
-            var c = Car(-3/4 + (1/2*(i%4)), 0,Math.floor(i/4)*segmentLength,"grey",0.005,10,Math.random() * (0.75 - 0.5) +0.5);
+            var c = Car(-3/4+ ((i % 4 > 1) ? 1/2 : 0) + ((i%2)), 0,Math.floor(i/2)*(segmentLength/2),"grey", Math.random()*(0.005-0.0035)+ 0.0035,10,Math.random() * (0.75 - 0.6) +0.6);
             c.ai = true;
             c.accelerating = true;
             cars.push(c);
@@ -954,134 +1103,144 @@ function game() {
     }
 
 
-    function collides(z1,x1,w1,z2,x2,w2 ) {
+    function collides(z1,x1,w1,z2,x2,w2, obj ) {
         var nvz = 0;
         var nvx = 0;
-        if (z2 > z1 && z2 < z1+segmentLength/2) {
+        var collx = false;
+        var collz = false;
+        if (z2 >= z1 && z2 <= z1+segmentLength/2) {
             nvz = -1*((z1+segmentLength/2)-z2); //how var back to we need to move to stop collision
+            collz = true;
         }
 
         var a1 = x1-w1/2, a2 = x1+w1/ 2, b1= x2-w2/ 2, b2 = x2+w2/2;
         if ((a1 < b2 && a2 > b1)) {
-            nvx = -1 * Math.min(Math.abs(b2 - a1), Math.abs(a2 - b1));
+            //use shortest distance
+            if (Math.abs(b2 - a1) < Math.abs(a2 - b1)) {
+                nvx = (b2 - a1);
+            } else {
+                nvx = -1*(a2 - b1);
+            }
+
+            collx = true;
         }
 
-        if (!((nvz < 0) && (nvx < 0))  ) {
+        if (!(collx && collz) ) {
             return null
         } else {
             //just resolve collision with shortest path
-            return {dvx:nvx, dvy:nvz}
+            return {dvx:nvx, dvy:nvz, obj: obj}
         }
 
-
-
-
-
-        /*if ((z2 > z1 && z2 < z1+segmentLength/2)
-        && !(x1-w1/2 > x2+w2/2 || x1+w1/2 < x2-w2/2)) {
-            //return new vx and vz values to stop "going through" other entity
-
-        }*/
     }
 
 
-
-
     function collide(car) {
+        return collideEx(car.secIdx, car.zoff, car.x, car);
 
+    }
+
+    function collideEx(secIdx, zoff, x, self) {
+        var carWidth = 0.4;
         //check the car against all static objects and all other cars
-        var z1 = car.zoff;
-        var x1 = car.ai ? car.x : (-1*car.x/((roadwidth/2)*tw));
-        var w1 = 0.25;
+        var z1 = zoff;
+        var x1 = self.ai ? x : (-1*x/((roadwidth/2)*tw));
+        var w1 = carWidth;// 0.25;
+        var collision;
 
-        var thisSec = currentMap.sections[car.secIdx];
-        var collision = collectFirst(thisSec.objects,function(i) {
-            return i[2].width && collides(z1,x1,w1, i[0],i[1],i[2].width )
+
+
+            //against other cars
+
+            //car collisions result in going backwards
+            collision = collectFirst(aiCars,function(c) {
+                return (c != self) && (!c.dead)
+                && (c.secIdx == secIdx)
+                && (collides(z1,x1,w1, c.zoff, c.x, 0.25, c))
+            });
+
+
+
+
+            //against player car
+            if (self != player && secIdx == player.secIdx && !player.dead) {
+                collision = collides(z1,x1,w1, player.zoff, (-1*player.x/((roadwidth/2)*tw)), carWidth, player);
+            }
+
+        //car collisions are most important
+        if (collision) return collision;
+
+
+        var thisSec = currentMap.sections[secIdx];
+        collision = collectFirst(thisSec.objects,function(i) {
+            return i[2].width && i[2].id != Map.objs.disabledItem && collides(z1,x1,w1, i[0],i[1],i[2].width, i )
         });
 
-        if (!collision) {
-            //against other cars
-            collision = collectFirst(aiCars,function(c) {
-                return (c != car)
-                && (c.secIdx == car.secIdx)
-                && (collides(z1,x1,w1, c.zoff, c.x, 0.25))
-            });
-        }
-
-        if (!collision) {
-            //against player car
-            if (car.ai && car.secIdx == player.secIdx) {
-                collision = collides(z1,x1,w1, player.zoff, (-1*player.x/((roadwidth/2)*tw)), 0.25);
-            }
-        }
 
 
-
-      //  for (var i=0; i < collision.length; i++) {
-          //  console.log("bang ",collision[i]);
-       // }
-
-       // for (var i=0; i < collision2.length; i++) {
-          //  console.log("Carbang", collision2[i]);
-        //}
         return collision;
     }
 
     function processInput() {
         player.direction = 0;
-        //carDirection = 0;
 
         if (keys["Right"]) {
-          // vx = vx + ((carturnspeed * vy / maxvy));
-
             player.direction = 1;
         }
         if (keys["Left"]) {
-        //    vx = vx - ((carturnspeed * vy / maxvy));
-
             player.direction = -1;
         }
         if (keys["Up"]) {
-          /*  if (vy < maxvy) {
-                vy = vy + caracceleration
-            }
-            */
             player.accelerating = true;
             player.braking = false;
         }
         if (keys["Down"]) {
-                //vy = vy - caracceleration*2;
-                //if (vy < -1*maxvy/3) vy = -1*maxvy/3;
             player.accelerating = false;
             player.braking = true;
         }
-
         if (!keys["Down"] && !keys["Up"]) {
-            //var nvy = vy - caracceleration /3;
-            //if (nvy > 0) vy = nvy;
             player.braking = false;
             player.accelerating = false;
-
         }
-
     }
 
 
+    function playMusic() {
+        var player = new CPlayer();
+        player.init(song);
+
+        while (player.generate() < 1) { }
+        var wave = player.createWave();
+        var audio = document.createElement("audio");
+        audio.src = URL.createObjectURL(new Blob([wave], {type: "audio/wav"}));
+        audio.play();
+        audio.loop = true;
+    }
 
     /*
      * Main
      */
 
-//canvas
+
 
     var w = 640;
     var h = 400;
     var tw = w * 3;
     var segmentLength = 5;
     var backgroundoffset = 0;
+    var respawnTime = 2000;
 
-    var player = Car(0,0,0,"red",0.005,10,0.8);
-    var aiCars = createAICars(0);
+    var currentMap = BasicMap();
+    var roadwidth = 1.5 / 3;
+
+    var numAIPlayers = 40;
+    var aiCars = createAICars(numAIPlayers);
+    var start = currentMap.normalizeSection(0,-1*segmentLength);
+    var player = Car(-0.75, start.s,start.o,"red",0.005,10,0.8);
+    //autopilot
+    player.ai = true;
+    player.accelerating = true;
+    aiCars.push(player);
 
 
 
@@ -1089,19 +1248,10 @@ function game() {
     var keys = {};
 
     /* our location */
-    var currentMap = BasicMap();
-    var roadwidth = 1.5 / 3;
+
 
     var renderer = Renderer();
 
-
-   /* var ctx = signSlip.getContext("2d");
-    ctx.globalCompositeOperation = "source-atop";
-    ctx.fillStyle = "rgba(255,255,255,0.75)";
-    ctx.fillRect(0,0, signSlip.width, signSlip.height);*/
-    //document.getElementsByTagName("body")[0].appendChild(signSlip);
-    //document.getElementsByTagName("body")[0].appendChild(signWarn);
-    //document.getElementsByTagName("body")[0].appendChild(greenCar);
     var lastTick;
     var targetTimePerFrame = 1000/60 ; //60 frames per second as ms
     requestAnimationFrame(tick);
@@ -1119,28 +1269,9 @@ function game() {
         return false;
     });
 
-
-
     //music
-/*
-    var player = new CPlayer();
-    player.init(song);
+   // playMusic();
 
-    while (player.generate() < 1) { }
-    var wave = player.createWave();
-    var audio = document.createElement("audio");
-    audio.src = URL.createObjectURL(new Blob([wave], {type: "audio/wav"}));
-    audio.play();
-    audio.loop = true;
-*/
-
-    /* show road
-     var r2 = document.createElement("img");
-     r2.src = tv2.toDataURL('image/png');
-
-     //r2.src = tv.toDataURL('image/png');
-     r2d = t2.getImageData(0,0,tw,h);
-     */
 }
 window.addEventListener("load", game, false);
 //game();
