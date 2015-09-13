@@ -18,7 +18,7 @@ function n$(tag) {
 
 
 
-function game() {
+function game(readyCallback) {
 
     function collectFirst(arr, func) {
         var item=null;
@@ -721,28 +721,35 @@ function game() {
           //  c.fillText("sec "+player.secIdx, w/20, 4*h/20);
         }
 
-        function fromEmbeddedSVG(id, mutate) {
-            var svg  = $(id).getSVGDocument().cloneNode(true);
+        function fromEmbeddedSVG(id, mutate, callback) {
+            var svg  = $s("#"+id+ " svg").cloneNode(true);
 
             if (mutate) { mutate(svg) }
 
             var xml  = new XMLSerializer().serializeToString(svg),
                 data = "data:image/svg+xml;base64," + btoa(xml),
                 img  = new Image();
+
+
+
+            img.addEventListener("load",function() {
+                img.height = img.naturalHeight;
+                img.width = img.naturalWidth;
+                //cache as canvas since these have horrible performance.
+                var cv = n$("canvas");
+                cv.width = img.width;
+                cv.height = img.height;
+                var ct = cv.getContext("2d");
+                ct.drawImage(img, 0,0);
+
+                callback(cv);
+            });
+
+
             img.setAttribute('src', data);
-            img.height = img.naturalHeight;
-            img.width = img.naturalWidth;
-
-            //cache as canvas since these have horrible performance.
-            var cv = n$("canvas");
-            cv.width = img.width;
-            cv.height = img.height;
-            var ct = cv.getContext("2d");
-            ct.drawImage(img, 0,0);
-
 
             //return img;
-            return cv;
+            //return cv;
         }
 
         function swapSVGColor(svg, oldColor,newColor) {
@@ -816,6 +823,13 @@ function game() {
 
 
 
+        var waiting = 0;
+        function loadComplete() {
+            waiting = waiting - 1;
+            if (waiting <= 0) {
+                readyCallback()
+            }
+        }
         var carstraight = {}, carturnright = {}, carturnleft = {}, cardead = {};
         [
             ["red",makeRed],
@@ -824,11 +838,18 @@ function game() {
             ["grey", null],
             ["yellow", makeYellow]
         ].forEach(function(r) {
-                carstraight[r[0]]= createObject(fromEmbeddedSVG("cr",r[1]));
-                carturnright[r[0]]= createObject(fromEmbeddedSVG("crt",r[1]));
-               // carfront[r[0]]=createObject(fromEmbeddedSVG("crf",r[1]));
-                carturnleft[r[0]]=createObject(flipImage(carturnright[r[0]].i));
-                cardead[r[0]] = createObject(makeTransparent(carstraight[r[0]].i, 0.2));
+                waiting++;
+                fromEmbeddedSVG("cr", r[1], function(img) {
+                    carstraight[r[0]] = createObject(img);
+                    cardead[r[0]] = createObject(makeTransparent(img, 0.2));
+                    loadComplete();
+                });
+                waiting++;
+                fromEmbeddedSVG("crt", r[1], function(img) {
+                    carturnright[r[0]] = createObject(img);
+                    carturnleft[r[0]] = createObject(flipImage(img));
+                    loadComplete();
+                });
             });
 
         var horizon = h / 2;
@@ -916,7 +937,7 @@ function game() {
             );
             objs[o.tunnelLight.id] = {i: createTunnelLight()};
             objs[o.reverser.id] = createObject(createItem("\u21B7", roadwidth * tw * 0.25, roadwidth * tw * 0.25, "rgba(245,242,83,0.2)", "white"));
-            objs[o.boost.id] = createObject(createItem("\uD83D\uDE80", roadwidth * tw * o.boost.width, roadwidth * tw * o.boost.width, "rgba(255,255,255,0)", "white"));
+            objs[o.boost.id] = createObject(createItem("\uD83D\uDE80", roadwidth * tw * o.boost.width, roadwidth * tw * o.boost.width, "rgba(255,255,255,0)", "orange"  /*"white"*/));
             tunnel = { i: createTunnel() };
             tunnelEntry = { i: createTunnel(true) };
             tunnelDarkness = { i: createTunnel(false,true) };
@@ -1170,7 +1191,7 @@ function game() {
         processAI(sf);
 
         //update background to make it look like we are turning
-        backgroundoffset = (backgroundoffset + sidewaysPull(player,sf)/3) % tw;
+        backgroundoffset = (backgroundoffset + ((-1*sidewaysPull(player,sf)* (tw/3)) /3) )   % tw;
 
         renderer.render();
   //      var ms = performance.now() - start;
@@ -1184,7 +1205,7 @@ function game() {
     function createAICars(num) {
         var cars=  [];
         for (var i = 0; i < num; i++) {
-            var c = Car(-3/4+ ((i % 4 > 1) ? 1/2 : 0) + ((i%2)), 0,Math.floor(i/2)*(segmentLength/2),"grey", Math.random()*(0.005-0.0035)+ 0.0035,0.0208,Math.random() * (0.75 - 0.6) +0.6);
+            var c = Car(-3/4+ ((i % 4 > 1) ? 1/2 : 0) + ((i%2)), 0,Math.floor(i/2)*(segmentLength/2),"grey", Math.random()*(0.005-0.0035)+ 0.0035,0.065/* 0.0208*/,Math.random() * (0.75 - 0.6) +0.6);
             c.ai = true;
             c.accelerating = true;
             cars.push(c);
@@ -1372,7 +1393,12 @@ function game() {
         // playMusic();
         renderer.render();
 
+        var elm = $s(".countdown");
         $s(".countdown").style.display="block";
+        var newone = elm.cloneNode(true);
+        elm.parentNode.replaceChild(newone, elm);
+
+
         window.setTimeout(function(){
             $s(".countdown").style.display="none";
             //start
@@ -1412,39 +1438,38 @@ var state = {
 //var g; //our global game instance
 function main() {
 
-    state.g = game();
-    g = state.g;
-    //get screenshots for our option screen
-    g.renderer.setType("city");
-    var city = g.renderer.getSnapshot();
+    state.g = game(function() {
+       var g = state.g;
+        //get screenshots for our option screen
+        g.renderer.setType("city");
+        var city = g.renderer.getSnapshot();
 
-    g.renderer.setType("desert");
-    var desert = g.renderer.getSnapshot();
+        g.renderer.setType("desert");
+        var desert = g.renderer.getSnapshot();
 
 
+        $s("#colorRed + label").appendChild(g.renderer.carImgs["red"].i);
+        $s("#colorGreen + label").appendChild(g.renderer.carImgs["green"].i);
+        $s("#colorBlue + label").appendChild(g.renderer.carImgs["blue"].i);
+        $s("#colorYellow + label").appendChild(g.renderer.carImgs["yellow"].i);
 
-    $s("#colorRed + label").appendChild(g.renderer.carImgs["red"].i);
-    $s("#colorGreen + label").appendChild(g.renderer.carImgs["green"].i);
-    $s("#colorBlue + label").appendChild(g.renderer.carImgs["blue"].i);
-    $s("#colorYellow + label").appendChild(g.renderer.carImgs["yellow"].i);
-
-    $s("#typecity + label").appendChild(city);
-    $s("#typedesert + label").appendChild(desert);
-    $s(".menu").style.display = "block";
-    $("loader").style.display = "none";
-    //g.playMusic();
-    var musicStatusEl = $("toggleMusic");
-    musicStatusEl.addEventListener("click", function() {
-        var classes = musicStatusEl.classList;
-        if (classes.contains("muted")) {
-            playMusic();
-            classes.remove("muted")
-        } else {
-            classes.add("muted");
-            stopMusic();
-        }
-    })
-
+        $s("#typecity + label").appendChild(city);
+        $s("#typedesert + label").appendChild(desert);
+        $s(".menu").style.display = "block";
+        $("loader").style.display = "none";
+        //g.playMusic();
+        var musicStatusEl = $("toggleMusic");
+        musicStatusEl.addEventListener("click", function () {
+            var classes = musicStatusEl.classList;
+            if (classes.contains("muted")) {
+                playMusic();
+                classes.remove("muted")
+            } else {
+                classes.add("muted");
+                stopMusic();
+            }
+        })
+    });
 }
 
 function startGame() {
@@ -1466,9 +1491,12 @@ function startGame() {
 
 function restartGame() {
     state.g.stop();
-    state.g = game();
     $("finished").style.display = "none";
-    $s(".menu").style.display = "block";
+    $("loader").style.display = "block";
+    state.g = game(function() {
+        $("loader").style.display = "none";
+       $s(".menu").style.display = "block";
+     });
 }
 
 window.addEventListener("load", main, false);
