@@ -1291,21 +1291,21 @@ function game(readyCallback) {
     function processInput() {
         player.direction = 0;
 
-        if (keys["Right"]) {
+        if (keys["Right"] || keys["ArrowRight"]) {
             player.direction = 1;
         }
-        if (keys["Left"]) {
+        if (keys["Left"] || keys["ArrowLeft"]) {
             player.direction = -1;
         }
-        if (keys["Up"]) {
+        if (keys["Up"] || keys["ArrowUp"]) {
             player.accelerating = true;
             player.braking = false;
         }
-        if (keys["Down"]) {
+        if (keys["Down"]  || keys["ArrowDown"]) {
             player.accelerating = false;
             player.braking = true;
         }
-        if (!keys["Down"] && !keys["Up"]) {
+        if ((!keys["Down"] && !keys["Up"]) && (!keys["ArrowDown"] && !keys["ArrowUp"]))   {
             player.braking = false;
             player.accelerating = false;
         }
