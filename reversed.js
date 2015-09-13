@@ -16,8 +16,6 @@ function n$(tag) {
 }
 
 
-
-
 function game(readyCallback) {
 
     function collectFirst(arr, func) {
@@ -118,9 +116,9 @@ function game(readyCallback) {
         var checkpoint = [[segmentLength,0,o.checkpoint]];
         var startline =  [[segmentLength,0,o.startLine]];
 
-        var tunnelLights = objectRepeat(o.tunnelLight,0,0,segmentLength,20);
-        tunnelLights = tunnelLights.concat(objectRepeat(o.tunnelLight,-1,0,segmentLength,20));
-        tunnelLights = tunnelLights.concat(objectRepeat(o.tunnelLight,1,0,segmentLength,20));
+        var tunnelLights = objectRepeat(o.tunnelLight,0,segmentLength/2,segmentLength,20);
+        tunnelLights = tunnelLights.concat(objectRepeat(o.tunnelLight,-1,segmentLength/2,segmentLength,20));
+        tunnelLights = tunnelLights.concat(objectRepeat(o.tunnelLight,1,segmentLength/2,segmentLength,20));
 
         var boosts = function(x,start,num) {
             return objectRepeat(o.boost,x,start*segmentLength,segmentLength,num);
@@ -876,11 +874,13 @@ function game(readyCallback) {
         function setType(mapType) {
             if (!mapType) mapType = "city";
 
+            roadwidth = 1.5 / 3;
+            roadwidthend = 0.04 / 3;
+            sideRoadWidth = 0.05 / 2;
+            lineWidth = 0.015;
+
             if (mapType == "city") {
-                roadwidth = 1.5 / 3;
-                roadwidthend = 0.04 / 3;
-                sideRoadWidth = 0.05 / 2;
-                lineWidth = 0.015;
+
 
                 fog = createFog("rgba(255,255,255,0)", "rgba(255,255,255,0.25)", 0.25);
 
@@ -894,10 +894,7 @@ function game(readyCallback) {
                 objs[o.tree.id] = createObject(drawUnicode("\uD83C\uDF33", 360, 390, "darkgreen", "#0E260E", 8));
 
             } else if (mapType == "desert") {
-                roadwidth = 1.5 / 3;
-                roadwidthend = 0.04 / 3;
-                sideRoadWidth = 0.05 / 2;
-                lineWidth = 0.015;
+
 
                 fog = createFog("rgba(237,204,169,0)", "rgba(237,204,169,0.45)", 0.15);
 
@@ -915,6 +912,25 @@ function game(readyCallback) {
 
                 //cactus
                 objs[o.tree.id] = createObject(drawUnicode("\uD83C\uDF35", 300, 260, "darkgreen", "#0E260E", 4));
+            } else if (mapType == "snow") {
+                fog = createFog("rgba(255,255,255,0)", "rgba(255,255,255,0.45)", 0.15);
+
+                road1 = drawRoadTexture("#C5D6FF", "#ADBBE9", "#9097B4", "#ADBBE9", fog); /*, function (c) {
+                    addRoadStripes(c, "rgba(0,0,0,0)", "#D3A281", sideRoadWidth);
+                });*/
+                road2 = drawRoadTexture("#EFE7F3", "#CDCCD3", "#9097B4", "#CDCCD3", fog);/*, function (c) {
+                    addRoadStripes(c, "rgba(0,0,0,0)", "#C89B7E", sideRoadWidth);
+                });*/
+
+
+                tunnelRoad1 = drawRoadTexture("black", "#314430", "white", "white");
+                tunnelRoad2 = drawRoadTexture("black", "#435443", "#314430", "#435443");
+                background = createBackground("#5F6F90", "#ADBBE9", fog);
+
+                //cactus
+                objs[o.tree.id] = createObject(drawUnicode("\uD83C\uDF32", 300, 260, "darkgreen", "#0E260E", 8));
+
+
             }
 
             objs[o.signSlip.id] = createObject(createUnicodeSign(160, 160, 45, "yellow", "black", "\u26D0", "black", 0.25));
@@ -993,19 +1009,20 @@ function game(readyCallback) {
         if (car.dead) {
             //car.zoff = off + car.speed * delta;
             if (car.secIdx == car.lastCheckpointSection) {
-                if (car.zoff <= car.lastCheckpointOffset) {
+                if (car.zoff <= car.lastCheckpointOffset ||
+                    off <= car.lastCheckpointOffset ) { //take into account the distance we just moved
                     car.zoff = car.lastCheckpointOffset;
                     car.speed = 0;
                     //quick collision check so we don't get telefragged
                     var c = collide(car);
                     if (c) {
                         return; //wait for the other guy
-                        //car.x = car.x + (car.ai ? c.dvx : (-1*c.dvx*((roadwidth/2)*tw)))*1.1
                     }
                     car.dead = false;
 
                     return;
                 }
+
 
                 car.speed = (car.zoff - car.lastCheckpointOffset)/currentMap.sections[car.secIdx].len() * car.maxSpeed * 2 * -1 - car.maxSpeed/20;
             }
@@ -1016,8 +1033,6 @@ function game(readyCallback) {
             car.lap++;
         }
         car.secIdx = n.s; car.zoff = n.o;
-
-
 
 
         //calculate cornering slippage
@@ -1089,14 +1104,6 @@ function game(readyCallback) {
                 car.destinationX = undefined;
 
             }
-            /*else if (obj[2].id == Map.objs.reverser.id) {
-                car.reversed = !car.reversed;
-                obj[2] = Map.objs.disabledItem;
-                setTimeout(function () {
-                    obj[2] = Map.objs.reverser;
-                }, respawnTime);
-
-            }*/
             else if (obj[2].id == Map.objs.boost.id) {
                 car.speed = car.speed * 1.1;
                 obj[2] = Map.objs.disabledItem;
@@ -1158,10 +1165,10 @@ function game(readyCallback) {
 
     }
 
-//    var tcount = 0;
+
     function tick(ts) {
         if (stopped) return;
-       // var start = performance.now();
+
         if (!lastTick) lastTick = ts;
         var delta = ts - lastTick;
         var sf = delta/targetTimePerFrame;
@@ -1194,11 +1201,6 @@ function game(readyCallback) {
         backgroundoffset = (backgroundoffset + ((-1*sidewaysPull(player,sf)* (tw/3)) /3) )   % tw;
 
         renderer.render();
-  //      var ms = performance.now() - start;
-   //     if (tcount++ > 120) {
-          //  console.log("frame time:",ms,"spare:", (targetTimePerFrame-ms), (targetTimePerFrame-ms)*100/targetTimePerFrame+"%");
-     //       tcount = 0;
-      //  }
         requestAnimationFrame(tick);
     }
 
@@ -1269,8 +1271,6 @@ function game(readyCallback) {
             });
 
 
-
-
             //against player car
             if (self != player && secIdx == player.secIdx && !player.dead) {
                 collision = collides(z1,x1,w1, player.zoff, player.x, carWidth, player);
@@ -1284,8 +1284,6 @@ function game(readyCallback) {
         collision = collectFirst(thisSec.objects,function(i) {
             return i[2].width && i[2].id != Map.objs.disabledItem && collides(z1,x1,w1, i[0],i[1],i[2].width, i )
         });
-
-
 
         return collision;
     }
@@ -1330,7 +1328,6 @@ function game(readyCallback) {
     var respawnTime = 2000;
 
     var currentMap = BasicMap();
-   //var roadwidth = 1.5 / 3;
 
     var numAIPlayers = 40;
 
@@ -1338,17 +1335,11 @@ function game(readyCallback) {
     var aiCars = {};
     var player = Car(-0.75, startLoc.s, startLoc.o, "red", 0.005, 0.0208, 0.8);
 
-    //autopilot
-    //player.ai = true;
-    //player.accelerating = true;
-    //aiCars.push(player);
-
 
 
 
     var keys = {};
 
-    /* our location */
 
 
     var renderer = Renderer();
@@ -1447,6 +1438,9 @@ function main() {
         g.renderer.setType("desert");
         var desert = g.renderer.getSnapshot();
 
+        g.renderer.setType("snow");
+        var snow = g.renderer.getSnapshot();
+
 
         $s("#colorRed + label").appendChild(g.renderer.carImgs["red"].i);
         $s("#colorGreen + label").appendChild(g.renderer.carImgs["green"].i);
@@ -1455,6 +1449,7 @@ function main() {
 
         $s("#typecity + label").appendChild(city);
         $s("#typedesert + label").appendChild(desert);
+        $s("#typesnow + label").appendChild(snow);
         $s(".menu").style.display = "block";
         $("loader").style.display = "none";
         //g.playMusic();
@@ -1499,5 +1494,16 @@ function restartGame() {
      });
 }
 
+function resize() {
+    var e = $s(".gs");
+    if (e.style.width != "960px") {
+        e.style.width="960px";
+        e.style.height="600px";
+    } else {
+        e.style.width="640px";
+        e.style.height="400px";
+    }
+}
+
 window.addEventListener("load", main, false);
-//game();
+

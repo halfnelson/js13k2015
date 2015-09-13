@@ -205,6 +205,14 @@ body {
     font-size: 70px;
     color: #ccc;
 }
+#resizer {
+    position: absolute;
+    top: 80px;
+    right: 10px;
+    font-size: 70px;
+    color: #ccc;
+    text-decoration: none;
+}
 
 #restart {
     position: absolute;
