@@ -933,7 +933,7 @@ function game(readyCallback) {
 
             }
 
-            objs[o.signSlip.id] = createObject(createUnicodeSign(160, 160, 45, "yellow", "black", "\u26D0", "black", 0.25));
+            objs[o.signSlip.id] = createObject(createUnicodeSign(160, 160, 45, "yellow", "black", "\u2691", "black", 0.25));
             objs[o.signWarn.id] = createObject(createUnicodeSign(160, 160, 45, "white", "black", "\u26A0", "red", 0.25));
 
             objs[o.startLine.id] = createObject(createSign(roadwidth * w * 3 * 1.1, 100, 300, "red", "red", 0.05, function (ctx) {
@@ -953,7 +953,7 @@ function game(readyCallback) {
             );
             objs[o.tunnelLight.id] = {i: createTunnelLight()};
             objs[o.reverser.id] = createObject(createItem("\u21B7", roadwidth * tw * 0.25, roadwidth * tw * 0.25, "rgba(245,242,83,0.2)", "white"));
-            objs[o.boost.id] = createObject(createItem("\uD83D\uDE80", roadwidth * tw * o.boost.width, roadwidth * tw * o.boost.width, "rgba(255,255,255,0)", "orange"  /*"white"*/));
+            objs[o.boost.id] = createObject(createItem("\u2605", roadwidth * tw * o.boost.width, roadwidth * tw * o.boost.width, "rgba(255,255,255,0)", "orange"  /*"white"*/));
             tunnel = { i: createTunnel() };
             tunnelEntry = { i: createTunnel(true) };
             tunnelDarkness = { i: createTunnel(false,true) };
