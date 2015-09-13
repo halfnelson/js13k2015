@@ -12,14 +12,66 @@
     <h1>Reversed</h1>
     <div class="gs">
         <canvas id="c"></canvas>
+        <div id="loader">
+            <h1>Loading...</h1>
+        </div>
+        <div class="countdown">
+            <h1>3</h1>
+            <h1>2</h1>
+            <h1>1</h1>
+            <h1>&#x1f3c1; GO! &#x1f3c1;</h1>
+        </div>
+
+        <div id="finished">
+            <h2>&#x1f3c6; Race Complete &#x1f3c6;</h2>
+            <dl>
+
+                <dt>Laps</dt><dd id="laps">25</dd>
+                <dt>&#x1f3c1;</dt><dd id="pos">1</dd>
+                <dt>&#x1f550;</dt> <dd id="time">34.51s</dd>
+
+                </dl>
+            <div style="clear:both; padding-top:15px;">
+             <a href="javascript:restartGame()">Again?</a>
+            </div>
+        </div>
+
+        <div class="menu">
+            <h2>New Game</h2>
+            <div class="section">
+                <h3>Car Color</h3>
+                <input type="radio" name="color" value="red" id="colorRed" checked><label class="coloroption" for="colorRed"></label>
+                <input type="radio" name="color" value="blue" id="colorBlue"><label class="coloroption" for="colorBlue"></label>
+                <input type="radio" name="color" value="green" id="colorGreen"><label class="coloroption" for="colorGreen"></label>
+                <input type="radio" name="color" value="yellow" id="colorYellow"><label class="coloroption" for="colorYellow"></label>
+            </div>
+
+            <div class="section">
+                <h3>Laps</h3>
+                <input type="radio" name="laps" value="5" id="lap5" checked><label class="lapoption" for="lap5">5</label>
+                <input type="radio" name="laps" value="10" id="lap10"><label class="lapoption" for="lap10">10</label>
+                <input type="radio" name="laps" value="15" id="lap15"><label class="lapoption" for="lap15">15</label>
+            </div>
+
+            <div class="section">
+                <h3>Track Type</h3>
+                <input type="radio" name="type" value="city" id="typecity" checked><label class="mapoption" for="typecity"></label>
+                <input type="radio" name="type" value="desert" id="typedesert"><label class="mapoption" for="typedesert"></label>
+            </div>
+
+            <div class="section">
+                <a href="javascript:startGame()">Start</a>
+            </div>
+
+        </div>
         <span class="b">&#x1f518;</span>
     </div>
 
 <embed src="a/car2.svg" id="cr" type="image/svg+xml" ></embed>
 
 <embed src="a/car2turn.svg" id="crt" type="image/svg+xml" ></embed>
-<embed src="a/car2front.svg" id="crf" type="image/svg+xml" ></embed>
-<script src="reversed.js"></script>
 
+<script src="reversed.js"></script>
+    <div id="toggleMusic">&#x266b;</div>
 </body>
 </html>
