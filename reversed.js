@@ -1169,10 +1169,18 @@ function game(readyCallback) {
     function tick(ts) {
         if (stopped) return;
 
+
         if (!lastTick) lastTick = ts;
         var delta = ts - lastTick;
         var sf = delta/targetTimePerFrame;
         lastTick = ts;
+
+        if (!focused) {
+             requestAnimationFrame(tick);
+            return;
+        }
+
+
 
         processInput();
         moveCar(player, sf);
@@ -1466,6 +1474,15 @@ function main() {
         })
     });
 }
+var focused = true;
+
+window.onfocus = function() {
+    focused = true;
+};
+window.onblur = function() {
+    focused = false;
+};
+
 
 function startGame() {
     //get options
