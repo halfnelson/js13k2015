@@ -164,6 +164,12 @@ function game(readyCallback) {
 
     function Renderer() {
 
+        function cvs(width, height) {
+            var cv = n$("canvas");
+            cv.width = width;
+            cv.height = height;
+            return cv;
+        }
 
         function poly(c, color, p) {
             c.fillStyle = color;
@@ -187,9 +193,8 @@ function game(readyCallback) {
         }
 
         function drawRoadTexture(grassColor, roadColor, sideRoadColor, lineColor, fog, callback) {
-            var cv = n$("canvas");
-            cv.width = tw;
-            cv.height = h;
+            var cv = cvs(tw,h);
+
             var c = cv.getContext("2d");
 
             //grass
@@ -229,9 +234,8 @@ function game(readyCallback) {
 
 
         function createTunnel(entry,darkness) {
-            var tmpc = n$("canvas");
-            tmpc.width = roadwidth*tw;
-            tmpc.height = h;
+            var tmpc = cvs(roadwidth*tw,h);
+
             var tc = tmpc.getContext("2d");
 
             tc.fillStyle = entry ? "#CCCCCC" :  "black";
@@ -241,9 +245,7 @@ function game(readyCallback) {
 
         function createTunnelLight() {
             var size = 50;
-            var tmpc = n$("canvas");
-            tmpc.width = size;
-            tmpc.height = 2*h/3;
+            var tmpc = cvs(size, 2*h/3);
             var tc = tmpc.getContext("2d");
             tc.fillStyle="yellow";
             tc.beginPath();
@@ -254,9 +256,7 @@ function game(readyCallback) {
         }
 
         function createSign(w, h, gh, color, borderColor, pollMargin, contentCallback ) {
-            var tmpc = n$("canvas");
-            tmpc.width = w;
-            tmpc.height = h+gh;
+            var tmpc = cvs(w,h+gh);
             var ctx = tmpc.getContext("2d");
             //poles
             ctx.fillStyle = "#DDD";
@@ -284,9 +284,7 @@ function game(readyCallback) {
         }
 
         function createMask(img) {
-            var tmpc = n$("canvas");
-            tmpc.width = img.width;
-            tmpc.height = img.height;
+            var tmpc = cvs(img.width, img.height);
             var tc = tmpc.getContext("2d");
             tc.drawImage(img,0,0,img.width,img.height, 0,0,img.width, img.height);
 
@@ -297,9 +295,7 @@ function game(readyCallback) {
         }
 
         function createFog(startColor, finishColor, startOffsetPercent) {
-            var tmpc = n$("canvas");
-            tmpc.width = w;
-            tmpc.height = horizon;
+            var tmpc = cvs(w,horizon);
             var tc = tmpc.getContext("2d");
             var gradientHeight = (1-startOffsetPercent)*horizon;
             var gradientTop = startOffsetPercent*horizon;
@@ -323,9 +319,7 @@ function game(readyCallback) {
 
 
         function createBackground(skycolor, groundcolor, fog) {
-            var cv = n$("canvas");
-            cv.width = tw;
-            cv.height = h;
+            var cv = cvs(tw,h);
             var c = cv.getContext("2d");
 
 
@@ -356,10 +350,7 @@ function game(readyCallback) {
         }
 
         function makeTransparent(image, opacity) {
-            var tmpc = n$("canvas");
-            tmpc.width = image.naturalWidth || image.width;
-            tmpc.height = image.naturalHeight || image.height;
-
+            var tmpc = cvs(image.naturalWidth || image.width, image.naturalHeight || image.height );
             var tmpctx = tmpc.getContext("2d");
             tmpctx.globalAlpha = opacity;
             tmpctx.drawImage(image,0,0);
@@ -368,10 +359,7 @@ function game(readyCallback) {
         }
 
         function flipImage(image) {
-            var tmpc = n$("canvas");
-            tmpc.width = image.naturalWidth || image.width;
-            tmpc.height = image.naturalHeight || image.height;
-
+            var tmpc = cvs(image.naturalWidth || image.width, image.naturalHeight || image.height );
             var tmpctx = tmpc.getContext("2d");
             tmpctx.imageSmoothingEnabled = false;
             tmpctx.translate(image.width, 0);
@@ -395,7 +383,7 @@ function game(readyCallback) {
 
 
 
-        function drawUnicode(char, fw, fh, color, strokeColor, lineWidth) {
+        /*function drawUnicode(char, fw, fh, color, strokeColor, lineWidth) {
             var cv = n$("canvas");
             cv.width = fw;
             cv.height = fh;
@@ -409,19 +397,15 @@ function game(readyCallback) {
 
             c.strokeText(char,fw/2,fh,fw);
             return cv;
-        }
+        }*/
 
 
-        function createItem(char, w, h, backgroundColor, fontColor) {
-            var cv = n$("canvas");
-            cv.width = w;
-            cv.height = h;
+        function createItem(char, w, h,  fontColor) {
+
+            var cv = cvs(w,h);
             var c = cv.getContext("2d");
 
-            c.fillStyle = backgroundColor;
-           // c.fillRect(0,0,w,h);
-            c.arc(w/2,h/2,w/2,0,Math.PI*2);
-            c.fill();
+
             c.beginPath();
             c.fillStyle = fontColor;
             c.font = "normal normal bold "+h * 0.75 +"px Arial";
@@ -734,9 +718,7 @@ function game(readyCallback) {
                 img.height = img.naturalHeight;
                 img.width = img.naturalWidth;
                 //cache as canvas since these have horrible performance.
-                var cv = n$("canvas");
-                cv.width = img.width;
-                cv.height = img.height;
+                var cv = cvs(img.width, img.height);
                 var ct = cv.getContext("2d");
                 ct.drawImage(img, 0,0);
 
@@ -801,9 +783,7 @@ function game(readyCallback) {
         function getScreenShot() {
             drawBackground();
             draw3dRoad(0,0,0);
-            var tmpc = n$("canvas");
-            tmpc.width = cv.width;
-            tmpc.height = cv.height;
+            var tmpc = cvs(cv.width, cv.height);
 
             var tmpctx = tmpc.getContext("2d");
             tmpctx.drawImage(cv,0,0);
@@ -811,17 +791,13 @@ function game(readyCallback) {
         }
 
         function fromLinkedSVG(id,w,h){
-          var bc = n$('canvas');
-          var i = $(id);
-          bc.width = 50;
-          bc.height = 50;
+          var bc = cvs(50,50);
+            var i = $(id);
           var cv = bc.getContext("2d");
           //cv.fillRect(0,0,360,360);
           cv.drawImage(i,0,0,50,50);
           
-          var c = n$('canvas');
-          c.width=w;
-          c.height=h;
+          var c = cvs(w,h);
           cv = c.getContext("2d");
           cv.drawImage(bc,0,0,w,h);
           
@@ -970,8 +946,9 @@ function game(readyCallback) {
                 })
             );
             objs[o.tunnelLight.id] = {i: createTunnelLight()};
-            objs[o.reverser.id] = createObject(createItem("\u21B7", roadwidth * tw * 0.25, roadwidth * tw * 0.25, "rgba(245,242,83,0.2)", "white"));
-            objs[o.boost.id] = createObject(createItem("\u2605", roadwidth * tw * o.boost.width, roadwidth * tw * o.boost.width, "rgba(255,255,255,0)", "orange"  /*"white"*/));
+            //objs[o.reverser.id] = //createObject(createItem("\u21B7", roadwidth * tw * 0.25, roadwidth * tw * 0.25, "rgba(245,242,83,0.2)", "white"));
+            var bw=roadwidth * tw * o.boost.width;
+            objs[o.boost.id] = createObject(createItem("\u2605",bw , bw,  "orange"  /*"white"*/));
             tunnel = { i: createTunnel() };
             tunnelEntry = { i: createTunnel(true) };
             tunnelDarkness = { i: createTunnel(false,true) };
