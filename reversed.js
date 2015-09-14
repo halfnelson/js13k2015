@@ -810,6 +810,25 @@ function game(readyCallback) {
             return tmpc;
         }
 
+        function fromLinkedSVG(id,w,h){
+          var bc = n$('canvas');
+          var i = $(id);
+          bc.width = 50;
+          bc.height = 50;
+          var cv = bc.getContext("2d");
+          //cv.fillRect(0,0,360,360);
+          cv.drawImage(i,0,0,50,50);
+          
+          var c = n$('canvas');
+          c.width=w;
+          c.height=h;
+          cv = c.getContext("2d");
+          cv.drawImage(bc,0,0,w,h);
+          
+          
+      
+          return c;
+        }
         //render setup
 
         var cv = $("c");
@@ -891,8 +910,7 @@ function game(readyCallback) {
                 tunnelRoad2 = drawRoadTexture("black", "#435443", "#314430", "#435443");
                 background = createBackground("blue", "#325611", fog);
                 //items
-                objs[o.tree.id] = createObject(drawUnicode("\uD83C\uDF33", 360, 390, "darkgreen", "#0E260E", 8));
-
+                objs[o.tree.id] =  createObject(fromLinkedSVG('deciduous',360,360)) //createObject(drawUnicode("\uD83C\uDF33", 360, 390, "darkgreen", "#0E260E", 8));
             } else if (mapType == "desert") {
 
 
@@ -911,7 +929,7 @@ function game(readyCallback) {
                 background = createBackground("blue", "#325611", fog);
 
                 //cactus
-                objs[o.tree.id] = createObject(drawUnicode("\uD83C\uDF35", 300, 260, "darkgreen", "#0E260E", 4));
+                objs[o.tree.id] = createObject(fromLinkedSVG('cactus',260,260)); //drawUnicode("\uD83C\uDF35", 300, 260, "darkgreen", "#0E260E", 4));
             } else if (mapType == "snow") {
                 fog = createFog("rgba(255,255,255,0)", "rgba(255,255,255,0.45)", 0.15);
 
@@ -927,8 +945,8 @@ function game(readyCallback) {
                 tunnelRoad2 = drawRoadTexture("black", "#435443", "#314430", "#435443");
                 background = createBackground("#5F6F90", "#ADBBE9", fog);
 
-                //cactus
-                objs[o.tree.id] = createObject(drawUnicode("\uD83C\uDF32", 300, 260, "darkgreen", "#0E260E", 8));
+                
+                objs[o.tree.id] = createObject(fromLinkedSVG('evergreen',360,360)); // createObject(drawUnicode("\uD83C\uDF32", 300, 260, "darkgreen", "#0E260E", 8));
 
 
             }
@@ -1437,6 +1455,9 @@ var state = {
 //var g; //our global game instance
 function main() {
 
+  
+    
+
     state.g = game(function() {
        var g = state.g;
         //get screenshots for our option screen
@@ -1521,6 +1542,8 @@ function resize() {
         e.style.height="400px";
     }
 }
+
+
 
 window.addEventListener("load", main, false);
 
